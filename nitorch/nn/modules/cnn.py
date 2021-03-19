@@ -2152,3 +2152,356 @@ class WNet(tnn.Sequential):
         x = self.final(x)
         return x if buffer_middle is None else (x, buffer_middle)
 
+
+@nitorchmodule
+class GroupEncoder(tnn.ModuleList):
+    """Modified Encoder network (for U-nets, VAEs, etc.) with group-wise operations
+    for input channels before fusion.
+
+    Notes
+    -----
+    .. The encoder is made of `n` encoding layer.
+    .. Each encoding layer is made of `k >= 0` convolutions followed by one
+       strided convolution _or_ pooling.
+    .. The activation function that follows the very last convolution/pooling
+       can be different from the other ones.
+    .. If batch normalization is activated, it is performed before each
+       convolution.
+    .. Grouped convolutions and stitching units can be used at each layer.
+
+    Examples
+    --------
+    Encoder(dim, 2, [8, 16])
+        (B, 2) -> Conv(stride=2) + ReLU -> (B, 8)
+               -> Conv(stride=2) + ReLU -> (B, 16)
+    Encoder(dim, 2, [[8, 8], [16, 16], [32, 32]], activation=[..., None])
+        (B, 2) -> Conv(stride=1) + ReLU -> (B, 8)
+               -> Conv(stride=2) + ReLU -> (B, 8)
+               -> Conv(stride=1) + ReLU -> (B, 16)
+               -> Conv(stride=2) + ReLU -> (B, 16)
+               -> Conv(stride=1) + ReLU -> (B, 32)
+               -> Conv(stride=2)        -> (B, 32)
+    Encoder(dim, 2, [8, 16], pool='max', activation=LeakyReLU(0.2))
+        (B, 2) -> Conv(stride=1) + MaxPool(stride=2) + LeakyReLU -> (B, 8)
+               -> Conv(stride=1) + MaxPool(stride=2) + LeakyReLU -> (B, 16)
+    Encoder(dim, 2, [[8, 8], 32], skip=True)
+        (B, 2) [returned]
+               -> Conv(stride=1) + ReLU -> (B, 8)
+               -> Conv(stride=2) + ReLU -> (B, 8)  [returned]
+               -> Conv(stride=2) + ReLU -> (B, 32) [returned]
+
+    """
+
+    def __init__(
+            self,
+            dim,
+            in_channels,
+            out_channels,
+            fusion_depth=0,
+            skip_channels=None,
+            kernel_size=3,
+            stride=2,
+            pool=None,
+            activation=tnn.ReLU,
+            batch_norm=False,
+            groups=None,
+            stitch=1):
+        """
+
+        Parameters
+        ----------
+        dim : {1, 2, 3}
+            Dimension.
+            
+        in_channels : int or sequence[int]
+            Number of input channels.
+            If a sequence, the first convolution is a grouped convolution.
+            
+        out_channels : sequence[int]
+            Number of output channels in each encoding layer.
+            Elements can be integers or nested sequences.
+            If nested sequences, multiple convolutions are performed at the
+            same resolution.
+
+        fusion_depth : int, default=0
+            Layer at which input channels are no longer processed individually
+            by grouped operations
+            
+        kernel_size : int or sequence[int], default=3
+            Kernel size per dimension.
+            
+        activation : [sequence of] str or type or callable, default='relu'
+            Activation function.
+            
+        batch_norm : [sequence of] bool or type or callable, default=False
+            Batch normalization before each convolution.
+            
+        stride : int or sequence[int], default=2
+            Spatial dimensions are divided by this number after each
+            encoding layer.
+            
+        pool : {'max', 'min', 'median', 'mean', 'sum', None}, default=None
+            Pooling used to change resolution.
+            If None, use strided convolutions.
+            
+        groups : [sequence of] int, default=`stitch`
+            Number of groups per layer. 
+            If > 1, a grouped convolution is performed. 
+            
+        stitch : [sequence of] int, default=1
+            Number of stitched tasks per layer. 
+
+        """
+        self.dim = dim
+                
+        out_channels = list(map(make_list, out_channels))
+        in_channels = [in_channels] + [c[-1] for c in out_channels[:-1]]
+        nb_layers = len(out_channels)
+        
+        stitch = map(lambda x: x or 1, make_list(stitch))
+        stitch = expand_list(stitch, nb_layers, default=1)
+        groups = expand_list(make_list(groups), nb_layers)
+        groups = [g or s for g, s in zip(groups, stitch)]
+        activation = expand_list(make_list(activation), nb_layers, default='relu')
+        batch_norm = expand_list(make_list(batch_norm), nb_layers, default=False)
+
+        for i in range(fusion_depth):
+            groups[i] = in_channels
+
+        # deal with skipped connections (what a nightmare...)
+        skip_channels = make_list(skip_channels or [])
+        self.skip = len(skip_channels) > 0
+        self.skip_groups = []
+        for i in range(len(skip_channels)):
+            self.skip_groups.append(groups[i])
+            if len(in_channels) > i+1:
+                in_channels[i] += skip_channels[i]
+
+        all_shapes = zip(
+            in_channels, 
+            out_channels, 
+            activation,
+            batch_norm,
+            groups, 
+            stitch)
+                               
+        modules = []
+        for i, o, a, b, g, s in all_shapes:
+            modules.append(EncodingLayer(
+                dim, i, o, kernel_size,
+                stride=stride,
+                pool=pool,
+                activation=a,
+                batch_norm=b,
+                groups=g,
+                stitch=[..., s]))
+            # If the layer is grouped, all convolutions in that 
+            # layer are grouped. However, I only stitch once 
+            # (at the end of the encoding layer)
+
+        super().__init__(modules)
+
+@nitorchmodule
+class GroupNet(tnn.Sequential):
+    """U-net with variable fusion depth for multi-modal input."""
+
+    def __init__(
+            self,
+            dim,
+            in_channels,
+            out_channels,
+            fusion_depth=0,
+            encoder=None,
+            decoder=None,
+            kernel_size=3,
+            stride=2,
+            activation=tnn.ReLU,
+            pool=None,
+            batch_norm=False,
+            groups=None,
+            stitch=1):
+        """
+
+        Parameters
+        ----------
+        dim : {1, 2, 3}
+            Dimension.
+            
+        in_channels : int or sequence[int]
+            Number of input channels.
+            If a sequence, the first convolution is a grouped convolution.
+            
+        out_channels : int or sequence [int]
+            Number of output channels.
+            If a sequence, the last convolution is a grouped convolution.
+            
+        encoder : sequence[int], default=[16, 32, 32, 32]
+            Number of channels in each encoding layer.
+            
+        decoder : sequence[int], default=[32, 32, 32, 32, 32, 16, 16]
+            Number of channels in each decoding layer.
+            If the number of decoding layer is larger than the number of
+            encoding layers, stacked convolutions are appended to the
+            UNet.
+            
+        kernel_size : int or sequence[int], default=3
+            Kernel size per dimension.
+            
+        activation : [sequence of] str or type or callable or None, default='relu'
+            Activation function. An activation can be a class
+            (typically a Module), which is then instantiated, or a
+            callable (an already instantiated class or a more simple
+            function). It is useful to accept both these cases as they
+            allow to either:
+                * have a learnable activation specific to this module
+                * have a learnable activation shared with other modules
+                * have a non-learnable activation
+                
+        pool : {'max', 'min', 'median', 'mean', 'sum', None}, default=None
+            Pooling to use in the encoder. If None, use strided convolutions.
+            
+        batch_norm : bool or type or callable, default=False
+            Batch normalization before each convolution.
+            
+        groups : [sequence of] int, default=`stitch`
+            Number of groups per layer. If > 1, a grouped convolution
+            is performed, which is equivalent to `groups` independent
+            layers.
+            
+        stitch : [sequence of] int, default=1
+            Number of stitched tasks per layer.
+        """
+        self.dim = dim
+
+        in_channels = make_list(in_channels)
+        out_channels = make_list(out_channels)
+
+        # defaults
+        encoder = list(encoder or [16, 32, 32, 32])
+        decoder = list(decoder or [32, 32, 32, 32, 32, 16, 16])
+
+        # ensure as many upsampling steps as downsampling steps
+        decoder = expand_list(decoder, len(encoder), crop=False)
+        encoder = list(map(make_list, encoder))
+        encoder_out = list(map(lambda x: x[-1], reversed(encoder)))
+        encoder_out.append(sum(in_channels))
+        decoder = list(map(make_list, decoder))
+        stack = flatten(decoder[len(encoder):])
+        decoder = decoder[:len(encoder)]
+
+        nb_layers = len(encoder) + len(decoder) + len(stack)
+        
+        stitch = map(lambda x: x or 1, make_list(stitch))
+        stitch = expand_list(stitch, nb_layers, default=1)
+        stitch[-1] = 1  # do not stitch last layer
+        groups = expand_list(make_list(groups), nb_layers)
+        groups = [g or s for g, s in zip(groups, stitch)]
+        groups[0] = len(in_channels)    # first layer
+        groups[-1] = len(out_channels)  # last layer
+        activation = expand_list(make_list(activation), nb_layers, default='relu')
+        if batch_norm:
+            batch_norm = expand_list(make_list(activation), nb_layers)
+            batch_norm[0] = tnn.GroupNorm(in_channels, in_channels) # groupnorm for first layer
+
+        range_e = slice(len(encoder))
+        range_d = slice(len(encoder), len(encoder) + len(decoder))
+        range_s = slice(len(encoder) + len(decoder), -1)
+        stitch_encoder = stitch[range_e]
+        stitch_decoder = stitch[range_d]
+        stitch_stack = stitch[range_s]
+        groups_encoder = groups[range_e]
+        groups_decoder = groups[range_d]
+        groups_stack = groups[range_s]
+        activation_encoder = activation[range_e]
+        activation_decoder = activation[range_d]
+        activation_stack = activation[range_s]
+        activation_final = activation[-1]   
+        batch_norm_encoder = batch_norm[range_e]
+        batch_norm_decoder = batch_norm[range_d]
+        batch_norm_stack = batch_norm[range_s]
+
+        # Add changes for modality fusion
+        # (probably faster to use slice notation as above)
+        # NOTE: Still need to figure out correct config for this
+
+        for i in range(fusion_depth):
+            encoder[i] *= in_channels
+            groups_encoder[i] *= in_channels
+            batch_norm[i] = tnn.GroupNorm(groups_encoder[i], )
+        
+        modules = []
+        enc = Encoder(dim,
+                      in_channels=in_channels,
+                      out_channels=encoder,
+                      kernel_size=kernel_size,
+                      stride=stride,
+                      activation=activation_encoder,
+                      batch_norm=batch_norm,
+                      pool=pool,
+                      groups=groups_encoder,
+                      stitch=stitch_encoder)
+        modules.append(('encoder', enc))
+
+        e_groups = reversed(groups_encoder)
+        d_groups = groups_decoder[1:] + (groups_stack[:1] or [len(out_channels)])
+        skip_repeat = [max(1, gd // ge) for ge, gd in 
+                       zip(e_groups, d_groups)]
+        skip_channels = [e * r for e, r in zip(encoder_out[1:], skip_repeat)]
+        self.skip_repeat = [1] + skip_repeat
+        
+        dec = Decoder(dim,
+                      in_channels=encoder_out[0],
+                      out_channels=decoder,
+                      skip_channels=skip_channels,
+                      kernel_size=kernel_size,
+                      stride=stride,
+                      activation=activation_decoder,
+                      batch_norm=batch_norm,
+                      groups=groups_decoder,
+                      stitch=stitch_decoder)
+        modules.append(('decoder', dec))
+
+        last_decoder = decoder[-1][-1] + skip_channels[-1]
+        if stack:
+            stk = StackedConv(dim,
+                              in_channels=last_decoder,
+                              out_channels=stack,
+                              kernel_size=kernel_size,
+                              activation=activation_stack,
+                              batch_norm=batch_norm,
+                              groups=groups_stack,
+                              stitch=stitch_stack)
+        else:
+            stk = Cat()
+        modules.append(('stack', stk))
+
+        input_final = stack[-1] if stack else last_decoder   
+        input_final = make_list(input_final)
+        if len(input_final) == 1:
+            input_final = [input_final[0]//len(out_channels)] * len(out_channels)
+        stk = Conv(dim, input_final, out_channels,
+                   kernel_size=kernel_size,
+                   activation=activation_final,
+                   batch_norm=batch_norm,
+                   padding='auto')
+        modules.append(('final', stk))
+
+        super().__init__(OrderedDict(modules))
+        
+    def forward(self, x):
+        
+        # encoder
+        encoder_out = []
+        for layer in self.encoder:
+            x, y = layer(x, return_last=True)
+            encoder_out.append(y)
+        encoder_out.append(x)
+        # repeat skipped values if decoder has split
+        x = list(reversed(encoder_out))
+        x = [x1.repeat([1, r] + [1]*self.dim) if r > 1. else x1
+             for x1, r in zip(x, self.skip_repeat)]
+        # decoder
+        x = self.decoder(x)
+        x = self.stack(x)
+        x = self.final(x)
+        return x
