@@ -17,6 +17,82 @@ augment_params = {'inu': {'amplitude': 0.25, 'fwhm': 15.0},
                   'noise': {'std_prct': 0.025}}
 
 
+class GroupNet(Module):
+    """Segmentation network based on U-Net architecture, with group-wise convolution
+    and normalisation for multi-modal input data.
+
+    """
+    def __init__(self,
+                dim,
+                fusion_depth=0,
+                output_classes=1,
+                input_channels=1,
+                encoder=None,
+                decoder=None,
+                kernel_size=3,
+                activation=tnn.LeakyReLU(0.2),
+                batch_norm=True, # TODO: Implement InstanceNorm
+                implicit=True,
+                bg_class=0,
+                augmentation=None):
+        """
+
+        Parameters
+        ----------
+        dim : int
+            Space dimension
+        fusion_depth: int, default=0
+            Depth to merge modalities and use shared convolutions/norm
+        output_classes : int, default=1
+            Number of classes, excluding background
+        input_channels : int, default=1
+            Number of input channels
+        encoder : sequence[int], optional
+            Number of features per encoding layer
+        decoder : sequence[int], optional
+            Number of features per decoding layer
+        kernel_size : int or sequence[int], default=3
+            Kernel size
+        activation : str or callable, default=LeakyReLU(0.2)
+            Activation function in the UNet.
+        batch_norm : bool or callable, default=True
+            Batch normalization layer.
+            Can be a class (typically a Module), which is then instantiated,
+            or a callable (an already instantiated class or a more simple
+            function).
+        implicit : bool, default=True
+            Only return `output_classes` probabilities (the last one
+            is implicit as probabilities must sum to 1).
+            Else, return `output_classes + 1` probabilities.
+        bg_class : int, default=0
+            Index of background class in reference segmentation.
+        augmentation : str or sequence[str], default=None
+            Apply various augmentation techniques, available methods are:
+            * 'warp' : Nonlinear warp of input image and target label
+            * 'noise' : Additive gaussian noise to image
+            * 'inu' : Multiplicative intensity non-uniformity (INU) to image
+
+        """
+        super().__init__()
+
+        self.bg_class = bg_class
+        if not isinstance(augmentation, (list, tuple)):  augmentation = [augmentation]
+        augmentation = ['warp-img-lab' if a == 'warp' else a for a in augmentation]
+        self.augmentation = augmentation
+        self.implicit = implicit
+        self.output_classes = output_classes
+        if implicit and output_classes == 1:
+            final_activation = tnn.Sigmoid
+        else:
+            final_activation = tnn.Softmax(dim=1)
+        if implicit:
+            output_classes += 1
+        # Add tensorboard callback
+        self.board = lambda tb, *args, **kwargs: self.board_custom(tb, *args, **kwargs, implicit=implicit, dim=dim)
+        
+
+
+
 class MeanSpaceNet(Module):
     """Segmentation network that trains in a shared mean space, but computes
     losses in native space.
