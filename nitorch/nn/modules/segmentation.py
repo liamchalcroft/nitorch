@@ -90,6 +90,7 @@ class GroupNet(Module):
         # Add tensorboard callback
         self.board = lambda tb, *args, **kwargs: self.board_custom(tb, *args, **kwargs, implicit=implicit, dim=dim)
         
+        self.unet = 
 
 
 
