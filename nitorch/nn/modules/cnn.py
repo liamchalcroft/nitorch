@@ -2186,6 +2186,9 @@ class GroupNet(tnn.Sequential):
         out_channels : int or sequence [int]
             Number of output channels.
             If a sequence, the last convolution is a grouped convolution.
+
+        fusion_depth : int, default=0
+            Network depth to fuse modalities into single group.
             
         encoder : sequence[int], default=[16, 32, 32, 32]
             Number of channels in each encoding layer.
