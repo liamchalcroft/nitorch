@@ -1244,7 +1244,7 @@ class GroupNet(Module):
         self.board = lambda tb, *args, **kwargs: board(tb, *args, **kwargs, implicit=implicit, dim=dim)
 
         self.groupnet = GroupNet(
-            dim,
+            dim=dim,
             in_channels=input_channels,
             out_channels=output_classes,
             fusion_depth=fusion_depth
