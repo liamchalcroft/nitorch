@@ -2280,7 +2280,6 @@ class GroupNet(tnn.Sequential):
 
         modules = []
         for i in range(fusion_depth):
-            print(encoder[i], groups_encoder[i], batch_norm_encoder[i])
             encoder[i][0] *= in_channels[0]
             groups_encoder[i] *= in_channels[0]
             batch_norm_encoder[i] = tnn.GroupNorm(groups_encoder[i], encoder[i])
@@ -2288,6 +2287,8 @@ class GroupNet(tnn.Sequential):
             group_pool = Conv(dim=dim, in_channels=encoder[i], 
             out_channels=int(encoder[i][0]//in_channels[0]), kernel_size=1)
             modules.append(('group_pool', group_pool))
+            print(encoder[i], groups_encoder[i], batch_norm_encoder[i])
+        
         
         enc = Encoder(dim,
                       in_channels=in_channels,
@@ -2351,7 +2352,7 @@ class GroupNet(tnn.Sequential):
         
         # encoder
         encoder_out = []
-        for i, layer in self.encoder:
+        for i, layer in enumerate(self.encoder):
             x, y = layer(x, return_last=True)
             if i <= fusion_depth:
                 y = self.group_pool(y)
