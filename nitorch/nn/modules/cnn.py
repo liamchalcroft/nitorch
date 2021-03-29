@@ -2280,8 +2280,8 @@ class GroupNet(tnn.Sequential):
 
         modules = []
         for i in range(fusion_depth):
-            encoder[i] *= in_channels
-            groups_encoder[i] *= in_channels
+            encoder[i] *= in_channels[0]
+            groups_encoder[i] *= in_channels[0]
             batch_norm_encoder[i] = tnn.GroupNorm(groups_encoder[i], encoder[i])
             # pool over channels to keep decoder shape consistent
             group_pool = Conv(dim=dim, in_channels=encoder[i], 
