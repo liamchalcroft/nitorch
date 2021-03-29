@@ -1186,7 +1186,8 @@ class GroupNet(Module):
                 augmentation=None,
                 pool=None,
                 groups=None,
-                stitch=1):
+                stitch=1,
+                skip_final_activation=False):
         """
 
         Parameters
