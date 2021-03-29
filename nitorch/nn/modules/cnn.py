@@ -2227,6 +2227,7 @@ class GroupNet(tnn.Sequential):
             Number of stitched tasks per layer.
         """
         self.dim = dim
+        self.fusion_depth = fusion_depth
 
         in_channels = make_list(in_channels)
         out_channels = make_list(out_channels)
@@ -2353,7 +2354,7 @@ class GroupNet(tnn.Sequential):
         encoder_out = []
         for i, layer in enumerate(self.encoder):
             x, y = layer(x, return_last=True)
-            if i <= fusion_depth:
+            if i <= self.fusion_depth:
                 y = self.group_pool(y)
             encoder_out.append(y)
         encoder_out.append(x)
