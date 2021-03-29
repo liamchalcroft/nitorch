@@ -2283,7 +2283,7 @@ class GroupNet(tnn.Sequential):
         for i in range(fusion_depth):
             encoder[i][0] *= in_channels[0]
             groups_encoder[i] *= in_channels[0]
-            batch_norm_encoder[i] = tnn.GroupNorm(groups_encoder[i], encoder[i][0])
+            batch_norm_encoder[i+1] = tnn.GroupNorm(groups_encoder[i], encoder[i][0])
             # pool over channels to keep decoder shape consistent
             group_pool.append(Conv(dim=dim, in_channels=encoder[i], 
             out_channels=int(encoder[i][0]//in_channels[0]), kernel_size=1))
