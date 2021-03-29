@@ -2288,7 +2288,7 @@ class GroupNet(tnn.Sequential):
             group_pool.append(Conv(dim=dim, in_channels=encoder[i], 
             out_channels=int(encoder[i][0]//in_channels[0]), kernel_size=1))
             print(encoder[i], groups_encoder[i], batch_norm_encoder[i])
-        modules.append(('group_pool', group_pool))
+        modules.append(('group_pool', tnn.ModuleList(group_pool)))
         
         enc = Encoder(dim,
                       in_channels=in_channels,
