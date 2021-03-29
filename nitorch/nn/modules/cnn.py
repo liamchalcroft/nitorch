@@ -2256,7 +2256,7 @@ class GroupNet(tnn.Sequential):
         activation = expand_list(make_list(activation), nb_layers, default='relu')
         if batch_norm:
             batch_norm = expand_list(make_list(batch_norm), nb_layers, default=True)
-            batch_norm[0] = tnn.GroupNorm(in_channels, in_channels) # groupnorm for first layer
+            batch_norm[0] = tnn.GroupNorm(in_channels[0], in_channels[0]) # groupnorm for first layer
 
         range_e = slice(len(encoder))
         range_d = slice(len(encoder), len(encoder) + len(decoder))
