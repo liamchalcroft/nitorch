@@ -2228,7 +2228,6 @@ class GroupNet(tnn.Sequential):
         """
         self.dim = dim
         self.fusion_depth = fusion_depth
-
         in_channels = make_list(in_channels)
         out_channels = make_list(out_channels)
 
