@@ -1247,7 +1247,7 @@ class GroupNet(Module):
             dim=dim,
             in_channels=input_channels,
             out_channels=output_classes,
-            fusion_depth=fusion_depth
+            fusion_depth=fusion_depth,
             encoder=encoder,
             decoder=decoder,
             kernel_size=kernel_size,
