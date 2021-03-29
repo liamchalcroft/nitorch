@@ -1162,7 +1162,7 @@ def warp_label(label, grid):
 
 
 
-class GroupNet(Module):
+class GroupSegNet(Module):
     """Modified U-Net structure, with multi-headed decoder for modality channels.
     Network depth to 'fuse' heads is controlled by variable fusion_depth; prior to
     fusion each modality will be treated individually using grouped convolutions
