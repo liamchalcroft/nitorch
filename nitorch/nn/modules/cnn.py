@@ -2354,6 +2354,7 @@ class GroupNet(tnn.Sequential):
         for i, layer in enumerate(self.encoder):
             x, y = layer(x, return_last=True)
             if i <= self.fusion_depth:
+                print(y)
                 y = self.group_pool(y)
             encoder_out.append(y)
         encoder_out.append(x)
