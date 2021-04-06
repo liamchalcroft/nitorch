@@ -2238,7 +2238,7 @@ class GroupNet(tnn.Sequential):
 
         # --- initial feature extraction --------------------------------
         if fusion_depth:
-            bn = tnn.GroupNorm(in_channels, encoder[0])
+            bn = tnn.GroupNorm(in_channels, in_channels)
         else:
             bn = batch_norm
 
