@@ -2281,7 +2281,7 @@ class GroupNet(tnn.Sequential):
                 cout = cin // in_channels
                 group_pool.append(Conv(dim=dim, in_channels=cin,
                 out_channels=cout, kernel_size=1))
-            modules['group-pool'] = tnn.ModuleList(group_pool)
+            modules['group'] = tnn.ModuleList(group_pool)
 
         # --- bottleneck ------------------------------------------
         cin = encoder[-1]
@@ -2370,7 +2370,7 @@ class GroupNet(tnn.Sequential):
             x, buffer = layer(x, return_last=True)
             if i <= self.fusion_depth:
                 # group-pooling
-                pool = self.group-pool[i]
+                pool = self.group[i]
                 buffer = pool(buffer)
             buffers.append(buffer)
 
