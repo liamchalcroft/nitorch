@@ -2276,7 +2276,7 @@ class GroupNet(tnn.Sequential):
         #--- group pooling ------------------------------------------
         if fusion_depth > 0:
             group_pool = []
-            for i in range (1, fusion_depth + 1):
+            for i in range (fusion_depth + 1):
                 cin = encoder[i]
                 cout = cin // in_channels
                 group_pool.append(Conv(dim=dim, in_channels=cin,
