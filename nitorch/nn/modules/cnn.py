@@ -2340,6 +2340,7 @@ class GroupNet(tnn.Sequential):
                      padding='auto')
         modules['final'] = final
         
+        super().__init__(modules)
 
     def forward(self, x, return_feat=False):
         """
