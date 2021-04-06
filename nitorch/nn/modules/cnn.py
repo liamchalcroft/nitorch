@@ -2283,10 +2283,10 @@ class GroupNet(tnn.Sequential):
             modules['group-pool'] = tnn.ModuleList(group_pool)
 
         # --- bottleneck ------------------------------------------
-        cin = encoder1[-1]
-        cout = decoder1[0]
-        cout = [encoder1[-1]] * (conv_per_layer - 1) + [cout]
-        modules['bottleneck1'] = DecodingLayer(
+        cin = encoder[-1]
+        cout = decoder[0]
+        cout = [encoder[-1]] * (conv_per_layer - 1) + [cout]
+        modules['bottleneck'] = DecodingLayer(
             dim,
             in_channels=cin,
             out_channels=cout,
