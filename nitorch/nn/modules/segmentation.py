@@ -1173,7 +1173,7 @@ class GroupSegNet(Module):
     """
     def __init__(self,
                 dim,
-                fusion_depth=0,
+                fusion_depth=None,
                 output_classes=1,
                 input_channels=1,
                 encoder=None,
@@ -1184,9 +1184,6 @@ class GroupSegNet(Module):
                 implicit=True,
                 bg_class=0,
                 augmentation=None,
-                pool=None,
-                groups=None,
-                stitch=1,
                 skip_final_activation=False):
         """
 
@@ -1194,7 +1191,7 @@ class GroupSegNet(Module):
         ----------
         dim : int
             Space dimension
-        fusion_depth: int, default=0
+        fusion_depth: int, default=None
             Network depth to fuse modalities into single group.
         output_classes : int, default=1
             Number of classes, excluding background
@@ -1253,10 +1250,8 @@ class GroupSegNet(Module):
             decoder=decoder,
             kernel_size=kernel_size,
             activation=[activation, ..., final_activation],
-            batch_norm=batch_norm,
-            pool=pool,
-            groups=groups,
-            stitch=stitch)
+            batch_norm=batch_norm
+            )
 
         # register loss tag
         self.tags = ['segmentation']
@@ -1321,4 +1316,3 @@ class GroupSegNet(Module):
             self.compute(_loss, _metric, segmentation=[prob, ref])
 
         return prob
-
