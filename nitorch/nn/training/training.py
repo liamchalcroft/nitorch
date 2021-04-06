@@ -340,9 +340,9 @@ class ModelTrainer:
             # backward pass
             loss.backward()
             self.optimizer.step()
+            print(loss.item())
             # update average across batches
             with torch.no_grad():
-                print('Calculate average across batch')
                 weight = float(batch[0].shape[0])
                 epoch_loss += loss * weight
                 update_loss_dict(epoch_losses, losses, weight)
