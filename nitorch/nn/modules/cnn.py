@@ -2212,6 +2212,7 @@ class GroupNet(tnn.Sequential):
         batch_norm : bool or type or callable, default=False
             Batch normalization before each convolution.
         """
+        self.dim = dim
         self.fusion_depth = fusion_depth
 
         # defaults
@@ -2339,7 +2340,7 @@ class GroupNet(tnn.Sequential):
                      activation=final_activation,
                      padding='auto')
         modules['final'] = final
-        
+
         super().__init__(modules)
 
     def forward(self, x, return_feat=False):
