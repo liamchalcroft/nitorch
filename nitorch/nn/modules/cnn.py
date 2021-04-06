@@ -2328,17 +2328,17 @@ class GroupNet(tnn.Sequential):
                 activation=activation,
                 batch_norm=batch_norm,
             )
-            modules.append(('stack', stk))
+            modules['stack'] = stk
             last_stack = cout[-1]
         else:
-            modules.append(('stack', Cat()))
+            modules['stack'] = Cat()
             last_stack = cin
 
         final = Conv(dim, last_stack, out_channels,
                      kernel_size=kernel_size,
                      activation=final_activation,
                      padding='auto')
-        modules.append(('final', final))
+        modules['final'] = final
         
 
     def forward(self, x, return_feat=False):
