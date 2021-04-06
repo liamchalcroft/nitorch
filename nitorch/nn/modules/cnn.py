@@ -2212,8 +2212,7 @@ class GroupNet(tnn.Sequential):
         batch_norm : bool or type or callable, default=False
             Batch normalization before each convolution.
         """
-        self.dim = dim
-        self.skip = skip
+        self.fusion_depth = fusion_depth
 
         # defaults
         conv_per_layer = max(1, conv_per_layer)
@@ -2274,9 +2273,9 @@ class GroupNet(tnn.Sequential):
         modules['encoder'] = tnn.ModuleList(modules_encoder)
 
         #--- group pooling ------------------------------------------
-        if fusion_depth:
+        if fusion_depth > 0:
             group_pool = []
-            for i in range (fusion_depth + 1):
+            for i in range (1, fusion_depth + 1):
                 cin = encoder[i]
                 cout = cin // in_channels
                 group_pool.append(Conv(dim=dim, in_channels=cin,
@@ -2341,25 +2340,54 @@ class GroupNet(tnn.Sequential):
                      padding='auto')
         modules.append(('final', final))
         
-    def forward(self, x):
-        
+
+    def forward(self, x, return_feat=False):
+        """
+
+        Parameters
+        ----------
+        x : (batch, in_channels, *spatial) tensor
+            Input tensor
+        return_feat : bool, default=False
+            Return the last features before the final convolution.
+
+        Returns
+        -------
+        x : (batch, out_channels, *spatial) tensor
+            Output tensor
+        f : (batch, decoder[-1], *spatial) tensor, if `return_feat`
+            Output features
+
+        """
+
+        x = self.first(x)
+
         # encoder
-        encoder_out = []
+        buffers = []
         for i, layer in enumerate(self.encoder):
-            x, y = layer(x, return_last=True)
+            x, buffer = layer(x, return_last=True)
             if i <= self.fusion_depth:
-                print(y)
-                y = self.group_pool(y)
-                print(y)
-            encoder_out.append(y)
-        encoder_out.append(x)
-        # repeat skipped values if decoder has split
-        x = list(reversed(encoder_out))
-        x = [x1.repeat([1, r] + [1]*self.dim) if r > 1. else x1
-             for x1, r in zip(x, self.skip_repeat)]
+                # group-pooling
+                pool = self.group-pool[i]
+                buffer = pool(buffer)
+            buffers.append(buffer)
+
+        pad = self.get_padding(buffers[-1].shape, x.shape, self.bottleneck)
+        x = self.bottleneck(x, output_padding=pad)
+
         # decoder
-        x = self.decoder(x)
-        x = self.stack(x)
+        for layer in self.decoder:
+            buffer = buffers.pop()
+            pad = self.get_padding(buffers[-1].shape, x.shape, layer)
+            x = layer(x, buffer, output_padding=pad)
+
+        x = self.stack(x, buffers.pop())
+        f = x if return_feat else None
         x = self.final(x)
-        return x
-        
+        return (x, f) if return_feat else x
+
+    def get_padding(self, outshape, inshape, layer):
+        outshape = outshape[2:]
+        shape = layer.shape(inshape)[2:]
+        padding = [o - i for o, i in zip(outshape, shape)]
+        return padding
