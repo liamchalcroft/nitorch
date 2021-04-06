@@ -1314,5 +1314,5 @@ class GroupSegNet(Module):
             dims = [0] + list(range(2, self.dim + 2))
             check.shape(prob, ref, dims=dims)
             self.compute(_loss, _metric, segmentation=[prob, ref])
-        print('Output {}'.format(prob))
+        print('Output {}'.format(prob.shape))
         return prob
