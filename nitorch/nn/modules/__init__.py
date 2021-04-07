@@ -8,6 +8,7 @@ from . import pool
 from . import spatial
 from . import segmentation
 from . import segreg
+from . import hyper
 
 from .base import *
 from .cnn import *
@@ -17,3 +18,4 @@ from .pool import *
 from .spatial import *
 from .segmentation import *
 from .segreg import *
+from .hyper import *

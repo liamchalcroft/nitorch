@@ -2155,13 +2155,16 @@ class WNet(tnn.Sequential):
 
 @nitorchmodule
 class GroupNet(tnn.Sequential):
-    """U-net with grouped-per-modality convolution and norm, with variable fusion depth for multi-modal input."""
+    """ U-Net with group-wise norm and conv for multi-modal inputs and variable fusion depth, with optional hypernetwork
+    to parametrise group-wise layers based on metadata (e.g. scanner, acquisition parameters)
+    """
 
     def __init__(
             self,
             dim,
             in_channels,
             out_channels,
+            hyper=False,
             fusion_depth=0,
             encoder=None,
             decoder=None,
@@ -2182,6 +2185,11 @@ class GroupNet(tnn.Sequential):
             
         out_channels : int
             Number of output channels.
+
+        hyper : bool, default=False
+            Hypernetwork for group-wise channels. If true, each image requires metadata to be provided in forward pass
+            with correct formatting (TODO: Make function to do this automatically from nifti headers). Should be able
+            to take image sets with arbitrary inputs (TODO: Figure out how to make in_channels variable).
 
         fusion_depth : int, default=0
             Network depth to fuse modalities into single group.
@@ -2214,6 +2222,7 @@ class GroupNet(tnn.Sequential):
         """
         self.dim = dim
         self.fusion_depth = fusion_depth
+        self.hyper = hyper
 
         # defaults
         conv_per_layer = max(1, conv_per_layer)
@@ -2260,6 +2269,8 @@ class GroupNet(tnn.Sequential):
             if fusion_depth:
                 if fusion_depth >= n:
                     bn = tnn.GroupNorm(in_channels, cin)
+                else:
+                    bn = batch_norm
             else:
                 bn = batch_norm
             modules_encoder.append(EncodingLayer(
@@ -2343,7 +2354,7 @@ class GroupNet(tnn.Sequential):
 
         super().__init__(modules)
 
-    def forward(self, x, return_feat=False):
+    def forward(self, x, meta=None, return_feat=False):
         """
 
         Parameters
@@ -2361,6 +2372,12 @@ class GroupNet(tnn.Sequential):
             Output features
 
         """
+
+        if self.hyper == True:
+            if not meta:
+                raise RuntimeError('No meta-data provided.')
+            else:
+
 
         x = self.first(x)
 
