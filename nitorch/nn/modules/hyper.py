@@ -7,6 +7,8 @@ import torch
 from torch import nn as tnn
 import torch.nn.functional as F
 import numpy as np
+from .base import nitorchmodule
+from nitorch.core.py import make_list
 
 
 @nitorchmodule
@@ -365,8 +367,6 @@ class HyperStack(tnn.Module):
                 activation=a,
                 batch_norm=bn
                 ))
-            if s > 1:
-                modules.append(Stitch(s, s))
         
         # last conv (strided if not pool)
         i, o, m, a, bn, b = final_shape
