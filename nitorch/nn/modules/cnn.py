@@ -2410,8 +2410,6 @@ class GroupNet(tnn.Sequential):
         if self.hyper == True:
             if not meta:
                 raise RuntimeError('No meta-data provided.')
-            else:
-
 
         x = self.first(x)
 
