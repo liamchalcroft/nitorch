@@ -33,7 +33,8 @@ class HyperGroupNorm(tnn.Module):
         # define network layers
         shared_modules = []
         shared_modules.append(tnn.Linear(meta_dim, 16))
-        shared_modules.append(tnn.Linear(16*(2**i), 16*(2**(i+1)))) for i in range(1,meta_depth+1)
+        for i in range(1,meta_depth+1):
+            shared_modules.append(tnn.Linear(16*(2**i), 16*(2**(i+1)))) 
 
         self.blocks = tnn.ModuleList(shared_modules)
 
@@ -110,7 +111,8 @@ class HyperConv(tnn.Module):
         # define network layers
         shared_modules = []
         shared_modules.append(tnn.Linear(meta_dim, 16))
-        shared_modules.append(tnn.Linear(16*(2**i), 16*(2**(i+1)))) for i in range(1,meta_depth+1)
+        for i in range(1,meta_depth+1):
+            shared_modules.append(tnn.Linear(16*(2**i), 16*(2**(i+1)))) 
 
         self.blocks = tnn.ModuleList(shared_modules)
 
@@ -205,7 +207,8 @@ class HyperConvTranspose(tnn.Module):
         # define network layers
         shared_modules = []
         shared_modules.append(tnn.Linear(meta_dim, 16))
-        shared_modules.append(tnn.Linear(16*(2**i), 16*(2**(i+1)))) for i in range(1,meta_depth+1)
+        for i in range(1,meta_depth+1):
+            shared_modules.append(tnn.Linear(16*(2**i), 16*(2**(i+1)))) 
 
         self.blocks = tnn.ModuleList(shared_modules)
 
