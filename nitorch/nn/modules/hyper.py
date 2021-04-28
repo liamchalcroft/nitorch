@@ -13,13 +13,13 @@ import numpy as np
 class HyperGroupNorm(tnn.Module):
 
     def __init__(self,
-                in_channels,
-                meta_dim,
-                meta_depth=1,
-                meta_act=None):
+        in_channels,
+        meta_dim,
+        meta_depth=1,
+        meta_act=None):
 
-            """ TODO: Add documentation
-            """
+        """ TODO: Add documentation
+        """
 
         super().__init__()
 
@@ -70,18 +70,19 @@ class HyperGroupNorm(tnn.Module):
 class HyperConv(tnn.Module):
 
     def __init__(self,
-                dim,
-                in_channels,
-                out_channels,
-                meta_dim,
-                activation=True,
-                batch_norm=True,
-                bias=True,
-                kernel_size=3,
-                meta_depth=1,
-                meta_act=None,
-                stride=1,
-                padding='same'):
+        dim,
+        in_channels,
+        out_channels,
+        meta_dim,
+        activation=True,
+        batch_norm=True,
+        bias=True,
+        kernel_size=3,
+        meta_depth=1,
+        meta_act=None,
+        stride=1,
+        padding='same'):
+
         """ TODO: Add documentation
         """
 
@@ -164,18 +165,19 @@ class HyperConv(tnn.Module):
 class HyperConvTranspose(tnn.Module):
 
     def __init__(self,
-                dim,
-                in_channels,
-                out_channels,
-                meta_dim,
-                batch_norm=True,
-                activation=True,
-                bias=True,
-                kernel_size=3,
-                meta_depth=1,
-                meta_act=None,
-                stride=1,
-                padding='same'):
+        dim,
+        in_channels,
+        out_channels,
+        meta_dim,
+        batch_norm=True,
+        activation=True,
+        bias=True,
+        kernel_size=3,
+        meta_depth=1,
+        meta_act=None,
+        stride=1,
+        padding='same'):
+
         """ TODO: Add documentation
         """
 
@@ -413,4 +415,3 @@ class HyperStack(tnn.Module):
                 x = layer(x, meta)
 
         return (x, *last) if return_last else x
-        
