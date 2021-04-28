@@ -12,6 +12,7 @@ from .base import nitorchmodule, Module
 from .conv import Conv
 from .pool import Pool
 from .reduction import reductions, Reduction
+from .hyper import HyperStack, HyperConv
 
 
 def interleaved_cat(tensors, dim=0, groups=1):
@@ -2165,6 +2166,7 @@ class GroupNet(tnn.Sequential):
             in_channels,
             out_channels,
             hyper=False,
+            meta_dim=None
             fusion_depth=0,
             encoder=None,
             decoder=None,
@@ -2172,7 +2174,8 @@ class GroupNet(tnn.Sequential):
             stride=2,
             activation=tnn.ReLU,
             batch_norm=True,
-            conv_per_layer=1):
+            residual=True,
+            conv_per_layer=2):
         """
 
         Parameters
@@ -2269,30 +2272,58 @@ class GroupNet(tnn.Sequential):
             if fusion_depth:
                 if fusion_depth >= n:
                     bn = tnn.GroupNorm(in_channels, cin)
+                    if hyper:
+                        modules_encoder.append(HyperStack(
+                            dim,
+                            in_channels=cin,
+                            out_channels=cout,
+                            meta_dim=meta_dim
+                            kernel_size=kernel_size,
+                            stride=stride,
+                            activation=activation,
+                            batch_norm=bn,
+                            residual=residual
+                        ))
                 else:
                     bn = batch_norm
+                    modules_encoder.append(EncodingLayer(
+                        dim,
+                        in_channels=cin,
+                        out_channels=cout,
+                        kernel_size=kernel_size,
+                        stride=stride,
+                        activation=activation,
+                        batch_norm=bn,
+                        residual=residual
+                    ))
             else:
                 bn = batch_norm
-            modules_encoder.append(EncodingLayer(
-                dim,
-                in_channels=cin,
-                out_channels=cout,
-                kernel_size=kernel_size,
-                stride=stride,
-                activation=activation,
-                batch_norm=bn,
-            ))
+                modules_encoder.append(EncodingLayer(
+                    dim,
+                    in_channels=cin,
+                    out_channels=cout,
+                    kernel_size=kernel_size,
+                    stride=stride,
+                    activation=activation,
+                    batch_norm=bn,
+                    residual=residual
+                ))
         modules['encoder'] = tnn.ModuleList(modules_encoder)
 
         #--- group pooling ------------------------------------------
-        if fusion_depth > 0:
-            group_pool = []
-            for i in range (fusion_depth + 1):
-                cin = encoder[i]
-                cout = cin // in_channels
-                group_pool.append(Conv(dim=dim, in_channels=cin,
-                out_channels=cout, kernel_size=1))
-            modules['group'] = tnn.ModuleList(group_pool)
+        if fusion_depth:
+            if fusion_depth > 0:
+                group_pool = []
+                for i in range (fusion_depth + 1):
+                    cin = encoder[i]
+                    cout = cin // in_channels
+                    if hyper:
+                        group_pool.append(HyperConv(dim=dim, in_channels=cin,
+                        out_channels=cout, meta_dim=meta_dim, kernel_size=1))
+                    else:
+                        group_pool.append(Conv(dim=dim, in_channels=cin,
+                        out_channels=cout, kernel_size=1))
+                modules['group'] = tnn.ModuleList(group_pool)
 
         # --- bottleneck ------------------------------------------
         cin = encoder[-1]
@@ -2306,6 +2337,7 @@ class GroupNet(tnn.Sequential):
             stride=stride,
             activation=activation,
             batch_norm=batch_norm,
+            residual=residual
         )
 
         # --- decoder ------------------------------------------
@@ -2323,6 +2355,7 @@ class GroupNet(tnn.Sequential):
                 stride=stride,
                 activation=activation,
                 batch_norm=batch_norm,
+                residual=residual
             ))
         modules['decoder'] = tnn.ModuleList(modules_decoder)
 
@@ -2339,6 +2372,7 @@ class GroupNet(tnn.Sequential):
                 kernel_size=kernel_size,
                 activation=activation,
                 batch_norm=batch_norm,
+                residual=residual
             )
             modules['stack'] = stk
             last_stack = cout[-1]
