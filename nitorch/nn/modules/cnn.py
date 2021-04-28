@@ -2277,7 +2277,7 @@ class GroupNet(tnn.Sequential):
                             dim,
                             in_channels=cin,
                             out_channels=cout,
-                            meta_dim=meta_dim
+                            meta_dim=meta_dim,
                             kernel_size=kernel_size,
                             stride=stride,
                             activation=activation,
