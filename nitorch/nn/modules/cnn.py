@@ -2166,7 +2166,7 @@ class GroupNet(tnn.Sequential):
             in_channels,
             out_channels,
             hyper=False,
-            meta_dim=None
+            meta_dim=None,
             fusion_depth=0,
             encoder=None,
             decoder=None,
