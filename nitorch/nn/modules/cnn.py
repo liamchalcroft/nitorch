@@ -2417,10 +2417,11 @@ class GroupNet(tnn.Sequential):
         buffers = []
         for i, layer in enumerate(self.encoder):
             x, buffer = layer(x, return_last=True)
-            if i <= self.fusion_depth:
-                # group-pooling
-                pool = self.group[i]
-                buffer = pool(buffer)
+            if self.fusion_depth:
+                if i <= self.fusion_depth:
+                    # group-pooling
+                    pool = self.group[i]
+                    buffer = pool(buffer)
             buffers.append(buffer)
 
         pad = self.get_padding(buffers[-1].shape, x.shape, self.bottleneck)
