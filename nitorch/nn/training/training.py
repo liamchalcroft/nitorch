@@ -588,6 +588,7 @@ class ModelTrainer:
                 self._save(self.epoch)
                 for self.epoch in range(self.epoch+1, self.nb_epoch+1):
                     train_loss = self._train(self.epoch)
+                    print(train_loss)
                     val_loss = self._eval(self.epoch)
                     self._save(self.epoch)
                     # scheduler
