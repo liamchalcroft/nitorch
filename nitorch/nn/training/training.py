@@ -337,6 +337,7 @@ class ModelTrainer:
             self.optimizer.zero_grad()
             output = self.model(*batch, _loss=losses, _metric=metrics)
             loss = sum(losses.values())
+            print(loss)
             # backward pass
             loss.backward()
             self.optimizer.step()
