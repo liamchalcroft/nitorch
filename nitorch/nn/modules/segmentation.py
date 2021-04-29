@@ -1176,10 +1176,14 @@ class GroupSegNet(Module):
                 fusion_depth=None,
                 output_classes=1,
                 input_channels=1,
+                hyper=False,
+                meta_dim=None,
                 encoder=None,
                 decoder=None,
                 kernel_size=3,
                 activation=tnn.LeakyReLU(0.2),
+                conv_per_layer=1,
+                residual=False,
                 batch_norm=True, # TODO: Implement InstanceNorm
                 implicit=True,
                 bg_class=0,
@@ -1246,11 +1250,15 @@ class GroupSegNet(Module):
             in_channels=input_channels,
             out_channels=output_classes,
             fusion_depth=fusion_depth,
+            hyper=hyper,
+            meta_dim=meta_dim,
             encoder=encoder,
             decoder=decoder,
             kernel_size=kernel_size,
             activation=[activation, ..., final_activation],
-            batch_norm=batch_norm
+            batch_norm=batch_norm,
+            conv_per_layer=conv_per_layer,
+            residual=residual
             )
 
         # register loss tag
