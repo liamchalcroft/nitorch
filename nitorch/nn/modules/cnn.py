@@ -2172,7 +2172,7 @@ class GroupNet(tnn.Sequential):
             decoder=None,
             kernel_size=3,
             stride=2,
-            activation=tnn.ReLU,
+            activation=tnn.LeakyReLU(),
             batch_norm=True,
             residual=False,
             conv_per_layer=1):
@@ -2344,7 +2344,13 @@ class GroupNet(tnn.Sequential):
         modules_decoder = []
         *encoder, bottleneck = encoder
         for n in range(len(decoder) - 1):
-            cin = decoder[n] + encoder[-n - 1] // in_channels
+            if fusion_depth:
+                if (len(decoder)-n) < fusion_depth:
+                    cin = decoder[n] + encoder[-n - 1] // in_channels
+                else:
+                    cin = decoder[n] + encoder[-n - 1]
+            else:
+                cin = decoder[n] + encoder[-n - 1]
             cout = decoder[n + 1]
             cout = [decoder[n]] * (conv_per_layer - 1) + [cout]
             modules_decoder.append(DecodingLayer(
@@ -2360,7 +2366,10 @@ class GroupNet(tnn.Sequential):
         modules['decoder'] = tnn.ModuleList(modules_decoder)
 
         # --- head -----------------------------------------------
-        cin = decoder[-1] + encoder[0] // in_channels
+        if fusion_depth:
+            cin = decoder[-1] + encoder[0] // in_channels
+        else:
+            cin = decoder[-1] + encoder[0]
         cout = [decoder[-1]] * (conv_per_layer - 1)
         for s in stack:
             cout += [s] * conv_per_layer
