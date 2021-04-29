@@ -2174,8 +2174,8 @@ class GroupNet(tnn.Sequential):
             stride=2,
             activation=tnn.ReLU,
             batch_norm=True,
-            residual=True,
-            conv_per_layer=2):
+            residual=False,
+            conv_per_layer=1):
         """
 
         Parameters
