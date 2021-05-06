@@ -2389,6 +2389,8 @@ class GroupNet(tnn.Sequential):
             modules['stack'] = Cat()
             last_stack = cin
 
+        print(final_activation)
+
         final = Conv(dim, last_stack, out_channels,
                      kernel_size=kernel_size,
                      batch_norm=batch_norm,
