@@ -2244,8 +2244,6 @@ class GroupNet(tnn.Sequential):
             for i in range(fusion_depth+1):
                 encoder[i] *= in_channels
 
-        print(encoder, decoder, stack)
-
         modules = OrderedDict()
 
         # --- initial feature extraction --------------------------------
@@ -2388,8 +2386,6 @@ class GroupNet(tnn.Sequential):
         else:
             modules['stack'] = Cat()
             last_stack = cin
-
-        print(final_activation)
 
         final = Conv(dim, last_stack, out_channels,
                      kernel_size=kernel_size,
