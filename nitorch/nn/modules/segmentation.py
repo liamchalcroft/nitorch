@@ -1270,7 +1270,7 @@ class GroupSegNet(Module):
     kernel_size = property(lambda self: self.groupnet.kernel_size)
     activation = property(lambda self: self.groupnet.activation)
 
-    def forward(self, image, meta=None, ref=None, *, _loss=None, _metric=None):
+    def forward(self, image, ref=None, meta=None,  *, _loss=None, _metric=None):
         """
 
         Parameters
