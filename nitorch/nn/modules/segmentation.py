@@ -1254,7 +1254,7 @@ class GroupSegNet(Module):
             encoder=encoder,
             decoder=decoder,
             kernel_size=kernel_size,
-            activation=[activation, ..., final_activation],
+            activation=[activation, final_activation],
             batch_norm=batch_norm,
             conv_per_layer=conv_per_layer,
             residual=residual
