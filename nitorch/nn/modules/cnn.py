@@ -2235,8 +2235,8 @@ class GroupNet(tnn.Sequential):
         decoder = make_list(decoder or default_decoder, 
                              n=len(encoder) - 1, crop=False)
 
-        stack = decoder[len(encoder) - 1:]
-        decoder = decoder[:len(encoder) - 1]
+        stack = decoder[len(encoder):]
+        decoder = decoder[:len(encoder)]
         activation, final_activation = make_list(activation, 2)
         kernel_size, final_kernel_size = make_list(kernel_size, 2)
 
@@ -2260,6 +2260,7 @@ class GroupNet(tnn.Sequential):
             out_channels=encoder[0],
             kernel_size=kernel_size,
             activation=activation,
+            stride=stride,
             batch_norm=bn,
             padding='auto')
 
@@ -2312,18 +2313,17 @@ class GroupNet(tnn.Sequential):
 
         #--- group pooling ------------------------------------------
         if fusion_depth:
-            if fusion_depth > 0:
-                group_pool = []
-                for i in range (fusion_depth + 1):
-                    cin = encoder[i]
-                    cout = cin // in_channels
-                    if hyper:
-                        group_pool.append(HyperConv(dim=dim, in_channels=cin,
-                        out_channels=cout, meta_dim=meta_dim, kernel_size=1))
-                    else:
-                        group_pool.append(Conv(dim=dim, in_channels=cin,
-                        out_channels=cout, kernel_size=1))
-                modules['group'] = tnn.ModuleList(group_pool)
+            group_pool = []
+            for i in range (fusion_depth + 1):
+                cin = encoder[i]
+                cout = cin // in_channels
+                if hyper:
+                    group_pool.append(HyperConv(dim=dim, in_channels=cin,
+                    out_channels=cout, meta_dim=meta_dim, kernel_size=1))
+                else:
+                    group_pool.append(Conv(dim=dim, in_channels=cin,
+                    out_channels=cout, kernel_size=1))
+            modules['group'] = tnn.ModuleList(group_pool)
 
         # --- bottleneck ------------------------------------------
         cin = encoder[-1]
@@ -2367,9 +2367,9 @@ class GroupNet(tnn.Sequential):
 
         # --- head -----------------------------------------------
         if fusion_depth:
-            cin = decoder[-1] + encoder[0] // in_channels
+            cin = decoder[-1] + 1
         else:
-            cin = decoder[-1] + encoder[0]
+            cin = decoder[-1] + in_channels
         cout = [decoder[-1]] * (conv_per_layer - 1)
         for s in stack:
             cout += [s] * conv_per_layer
