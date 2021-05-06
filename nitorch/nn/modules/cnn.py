@@ -2269,9 +2269,10 @@ class GroupNet(tnn.Sequential):
             cout = encoder[n + 1]
             cout = [cin] * (conv_per_layer - 1) + [cout]
             if fusion_depth:
-                if fusion_depth >= n:
+                if n <= fusion_depth:
                     bn = tnn.GroupNorm(in_channels, cin)
                     if hyper:
+                        bn = tnn.GroupNorm(in_channels, meta_dim)
                         modules_encoder.append(HyperStack(
                             dim,
                             in_channels=cin,
@@ -2283,6 +2284,18 @@ class GroupNet(tnn.Sequential):
                             batch_norm=bn,
                             residual=residual
                         ))
+                    else:
+                        bn = tnn.GroupNorm(in_channels, cin)
+                        modules_encoder.append(EncodingLayer(
+                        dim,
+                        in_channels=cin,
+                        out_channels=cout,
+                        kernel_size=kernel_size,
+                        stride=stride,
+                        activation=activation,
+                        batch_norm=bn,
+                        residual=residual
+                    ))
                 else:
                     bn = batch_norm
                     modules_encoder.append(EncodingLayer(
@@ -2439,7 +2452,7 @@ class GroupNet(tnn.Sequential):
             if self.fusion_depth:
                 if i <= self.fusion_depth:
                     # group-pooling
-                    pool = self.group[i]
+                    pool = self.group[i+1]
                     buffer = pool(buffer)
             buffers.append(buffer)
 
