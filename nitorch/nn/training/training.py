@@ -336,7 +336,7 @@ class ModelTrainer:
             nb_batches += batch[0].shape[0]
             self.optimizer.zero_grad()
             output = self.model(*batch, _loss=losses, _metric=metrics)
-            print('Raw losses: {}'.format(losses.values))
+            print('Raw losses: {}'.format(losses.values()))
             loss = sum(losses.values())
             print('Loss: {}'.format(loss))
             # backward pass
