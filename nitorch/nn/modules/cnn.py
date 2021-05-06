@@ -2391,6 +2391,7 @@ class GroupNet(tnn.Sequential):
 
         final = Conv(dim, last_stack, out_channels,
                      kernel_size=kernel_size,
+                     batch_norm=batch_norm,
                      activation=final_activation,
                      padding='auto')
         modules['final'] = final
