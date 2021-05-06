@@ -2419,10 +2419,12 @@ class GroupNet(tnn.Sequential):
             if not meta:
                 raise RuntimeError('No meta-data provided.')
 
+        buffers = []
+        buffers.append(x)
+
         x = self.first(x)
 
         # encoder
-        buffers = []
         for i, layer in enumerate(self.encoder):
             x, buffer = layer(x, return_last=True)
             print(buffer.shape)
