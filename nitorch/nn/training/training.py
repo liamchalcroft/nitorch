@@ -337,7 +337,6 @@ class ModelTrainer:
             self.optimizer.zero_grad()
             output = self.model(*batch, _loss=losses, _metric=metrics)
             loss = sum(losses.values())
-            print('Loss: {}'.format(loss))
             # backward pass
             loss.backward()
             self.optimizer.step()
@@ -589,7 +588,7 @@ class ModelTrainer:
                 self._save(self.epoch)
                 for self.epoch in range(self.epoch+1, self.nb_epoch+1):
                     train_loss = self._train(self.epoch)
-                    print(train_loss)
+                    print('Train loss: {}'.format(train_loss))
                     val_loss = self._eval(self.epoch)
                     self._save(self.epoch)
                     # scheduler
