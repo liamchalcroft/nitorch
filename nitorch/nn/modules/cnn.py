@@ -2312,6 +2312,12 @@ class GroupNet(tnn.Sequential):
         #--- group pooling ------------------------------------------
         if fusion_depth:
             group_pool = []
+            if hyper:
+                group_pool.append(HyperConv(dim=dim, in_channels=in_channels,
+                    out_channels=1, meta_dim=meta_dim, kernel_size=1))
+            else:
+                group_pool.append(Conv(dim=dim, in_channels=in_channels,
+                    out_channels=1, kernel_size=1))
             for i in range (fusion_depth + 1):
                 cin = encoder[i]
                 cout = cin // in_channels
@@ -2420,7 +2426,10 @@ class GroupNet(tnn.Sequential):
                 raise RuntimeError('No meta-data provided.')
 
         buffers = []
-        buffers.append(x)
+        if self.fusion_depth:
+            buffers.append(self.group[0](x))
+        else:
+            buffers.append(x)
 
         x = self.first(x)
 
