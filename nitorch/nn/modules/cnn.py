@@ -2427,7 +2427,6 @@ class GroupNet(tnn.Sequential):
         # encoder
         for i, layer in enumerate(self.encoder):
             x, buffer = layer(x, return_last=True)
-            print(buffer.shape)
             if self.fusion_depth:
                 if i <= self.fusion_depth:
                     # group-pooling
