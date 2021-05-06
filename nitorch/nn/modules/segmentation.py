@@ -1186,7 +1186,6 @@ class GroupSegNet(Module):
                 residual=False,
                 batch_norm=True, # TODO: Implement InstanceNorm
                 implicit=True,
-                bg_class=0,
                 augmentation=None,
                 skip_final_activation=False):
         """
@@ -1271,7 +1270,7 @@ class GroupSegNet(Module):
     kernel_size = property(lambda self: self.groupnet.kernel_size)
     activation = property(lambda self: self.groupnet.activation)
 
-    def forward(self, image, ref=None, *, _loss=None, _metric=None):
+    def forward(self, image, meta=None, ref=None, *, _loss=None, _metric=None):
         """
 
         Parameters
@@ -1311,7 +1310,7 @@ class GroupSegNet(Module):
                 image, ref = augment(aug_method, image, ref)
 
         # unet
-        prob = self.groupnet(image)
+        prob = self.groupnet(image, meta)
         if self.implicit and prob.shape[1] > self.output_classes:
             prob = prob[:, :-1, ...]
 
