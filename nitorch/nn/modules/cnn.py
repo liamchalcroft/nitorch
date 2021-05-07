@@ -2241,7 +2241,7 @@ class GroupNet(tnn.Sequential):
         kernel_size, final_kernel_size = make_list(kernel_size, 2)
 
         if fusion_depth:
-            for i in range(fusion_depth+1):
+            for i in range(fusion_depth):
                 encoder[i] *= in_channels
 
         modules = OrderedDict()
@@ -2269,7 +2269,7 @@ class GroupNet(tnn.Sequential):
             cout = encoder[n + 1]
             cout = [cin] * (conv_per_layer - 1) + [cout]
             if fusion_depth:
-                if n <= fusion_depth:
+                if n < fusion_depth:
                     bn = tnn.GroupNorm(in_channels, cin)
                     if hyper:
                         bn = tnn.GroupNorm(in_channels, meta_dim)
@@ -2331,7 +2331,7 @@ class GroupNet(tnn.Sequential):
             else:
                 group_pool.append(Conv(dim=dim, in_channels=in_channels,
                     out_channels=1, kernel_size=1))
-            for i in range (fusion_depth + 1):
+            for i in range(fusion_depth):
                 cin = encoder[i]
                 cout = cin // in_channels
                 if hyper:
