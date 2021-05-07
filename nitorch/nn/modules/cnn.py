@@ -2362,6 +2362,7 @@ class GroupNet(tnn.Sequential):
         *encoder, bottleneck = encoder
         for n in range(len(decoder) - 1):
             if fusion_depth:
+                print(len(decoder)-n)
                 if (len(decoder)-n) <= fusion_depth:
                     cin = decoder[n] + (encoder[-n - 1] // in_channels)
                 else:
