@@ -2362,7 +2362,6 @@ class GroupNet(tnn.Sequential):
         *encoder, bottleneck = encoder
         for n in range(len(decoder) - 1):
             if fusion_depth:
-                print(len(decoder)-(n+1))
                 if (len(decoder)-(n+1)) <= fusion_depth:
                     cin = decoder[n] + (encoder[-n - 1] // in_channels)
                 else:
@@ -2451,7 +2450,7 @@ class GroupNet(tnn.Sequential):
         for i, layer in enumerate(self.encoder):
             x, buffer = layer(x, return_last=True)
             if self.fusion_depth:
-                if i <= self.fusion_depth:
+                if i < self.fusion_depth:
                     # group-pooling
                     pool = self.group[i+1]
                     buffer = pool(buffer)
