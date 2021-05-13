@@ -7,6 +7,7 @@ import torch
 from torch import nn as tnn
 import torch.nn.functional as F
 import numpy as np
+from .conv import expand_list
 from .base import nitorchmodule
 from nitorch.core.py import make_list
 
