@@ -117,7 +117,6 @@ class HyperConv(tnn.Module):
 
         super().__init__()
 
-        self.depth = depth
         self.dim = dim
         self.stride = stride
         self.bias = bias
@@ -134,7 +133,7 @@ class HyperConv(tnn.Module):
         if not meta_act:
             self.meta_act = tnn.LeakyReLU()
         else:
-            self.meta_act = act
+            self.meta_act = meta_act
 
         # define network layers
         shared_modules = []
@@ -213,7 +212,6 @@ class HyperConvTranspose(tnn.Module):
 
         super().__init__()
 
-        self.depth = depth
         self.dim = dim
         self.stride = stride
         self.bias = bias
@@ -230,7 +228,7 @@ class HyperConvTranspose(tnn.Module):
         if not meta_act:
             self.meta_act = tnn.LeakyReLU()
         else:
-            self.meta_act = act
+            self.meta_act = meta_act
 
         # define network layers
         shared_modules = []
