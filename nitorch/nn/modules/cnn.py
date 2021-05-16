@@ -2440,11 +2440,17 @@ class GroupNet(tnn.Sequential):
 
         buffers = []
         if self.fusion_depth:
-            buffers.append(self.group[0](x))
+            if self.hyper:
+                buffers.append(self.group[0](x, meta))
+            else:
+                buffers.append(self.group[0](x))
         else:
             buffers.append(x)
 
-        x = self.first(x)
+        if self.hyper:
+            x = self.first(x, meta)
+        else:
+            x = self.first(x)
 
         # encoder
         for i, layer in enumerate(self.encoder):
@@ -2453,11 +2459,18 @@ class GroupNet(tnn.Sequential):
                 if i < self.fusion_depth:
                     # group-pooling
                     pool = self.group[i+1]
-                    buffer = pool(buffer)
+                    if self.hyper:
+                        buffer = pool(buffer, meta)
+                    else:
+                        buffer = pool(buffer)
             buffers.append(buffer)
 
         pad = self.get_padding(buffers[-1].shape, x.shape, self.bottleneck)
-        x = self.bottleneck(x, output_padding=pad)
+
+        if self.hyper:
+            x = self.bottleneck(x, meta, output_padding=pad)
+        else:
+            x = self.bottleneck(x, output_padding=pad)
 
         # decoder
         for layer in self.decoder:
