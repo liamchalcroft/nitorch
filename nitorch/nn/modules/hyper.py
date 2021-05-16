@@ -301,6 +301,7 @@ class HyperStack(tnn.Module):
             meta_depth=1,
             meta_act=None,
             transposed=False,
+            pool=None,
             activation=True,
             batch_norm=True,
             bias=False,
