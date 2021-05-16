@@ -395,7 +395,7 @@ class HyperStack(tnn.Module):
                 ))
         
         # last conv (strided if not pool)
-        i, o, m, a, bn, b = final_shape
+        i, o, a, bn, b = final_shape
         if transposed:
             modules.append(HyperConvTranspose(
                 dim, i, o, meta_dim,
