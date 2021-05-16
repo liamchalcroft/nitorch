@@ -410,6 +410,8 @@ class HyperStack(tnn.Module):
                 batch_norm=bn,
                 stride=stride,
                 bias=b))
+
+        print(modules)
                 
         super().__init__(modules)
 
