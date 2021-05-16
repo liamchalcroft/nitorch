@@ -7,9 +7,34 @@ import torch
 from torch import nn as tnn
 import torch.nn.functional as F
 import numpy as np
-from .cnn import expand_list
 from .base import nitorchmodule
 from nitorch.core.py import make_list
+
+
+def expand_list(x, n, crop=False, default=None):
+    """Expand ellipsis in a list by substituting it with the value
+    on its left, repeated as many times as necessary. By default,
+    a "virtual" ellipsis is present at the end of the list.
+
+    expand_list([1, 2, 3],       5)            -> [1, 2, 3, 3, 3]
+    expand_list([1, 2, ..., 3],  5)            -> [1, 2, 2, 2, 3]
+    expand_list([1, 2, 3, 4, 5], 3, crop=True) -> [1, 2, 3]
+    """
+    x = list(x)
+    if Ellipsis not in x:
+        x.append(Ellipsis)
+    idx_ellipsis = x.index(Ellipsis)
+    if idx_ellipsis == 0:
+        fill_value = default
+    else:
+        fill_value = x[idx_ellipsis-1]
+    k = len(x) - 1
+    x = (x[:idx_ellipsis] + 
+         [fill_value] * max(0, n-k) + 
+         x[idx_ellipsis+1:])
+    if crop:
+        x = x[:n]
+    return x
 
 
 @nitorchmodule
