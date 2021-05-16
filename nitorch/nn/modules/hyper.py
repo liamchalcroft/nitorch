@@ -359,6 +359,8 @@ class HyperStack(tnn.Module):
             `True` is equivalent to 'single'.
 
         """
+        super().__init__()
+
         self.dim = dim
         self.residual = residual
         self.return_last = return_last
@@ -411,9 +413,11 @@ class HyperStack(tnn.Module):
                 stride=stride,
                 bias=b))
 
-        print(modules)
+        # print(modules)
+
+        self.modules = tnn.ModuleList(modules)
                 
-        super().__init__(modules)
+        # super().__init__(modules)
 
     def forward(self, x, meta):
         """
@@ -433,7 +437,7 @@ class HyperStack(tnn.Module):
         x = torch.cat(x, 1) if len(x) > 1 else x[0]
         if 'cat' in return_last:
             last.append(x)
-        for layer in self:
+        for layer in self.modules:
             if return_last and not is_last(layer):
                 last = [x]
                 if 'single' in return_last and 'cat' in return_last:
