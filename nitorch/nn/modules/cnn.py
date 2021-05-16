@@ -2435,7 +2435,7 @@ class GroupNet(tnn.Sequential):
         """
 
         if self.hyper == True:
-            if not meta:
+            if meta==None:
                 raise RuntimeError('No meta-data provided.')
 
         buffers = []
