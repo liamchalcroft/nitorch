@@ -51,12 +51,10 @@ class HyperGroupNorm(tnn.Module):
 
         super().__init__()
 
-        self.depth = depth
-
         if not act:
             self.act = tnn.LeakyReLU()
         else:
-            self.act = act
+            self.act = meta_act
 
         # define network layers
         shared_modules = []
