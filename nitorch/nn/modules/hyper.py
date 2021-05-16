@@ -51,7 +51,7 @@ class HyperGroupNorm(tnn.Module):
 
         super().__init__()
 
-        if not act:
+        if not meta_act:
             self.act = tnn.LeakyReLU()
         else:
             self.act = meta_act
