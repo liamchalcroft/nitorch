@@ -358,8 +358,7 @@ class HyperStack(tnn.Module):
             activation=True,
             batch_norm=True,
             bias=False,
-            residual=False,
-            return_last=False):
+            residual=False):
         """
 
         Parameters
@@ -419,7 +418,6 @@ class HyperStack(tnn.Module):
         self.meta_dim = meta_dim
         self.dim = dim
         self.residual = residual
-        self.return_last = return_last
 
         out_channels = make_list(out_channels)
         in_channels = [in_channels] + out_channels[:-1]
@@ -475,10 +473,9 @@ class HyperStack(tnn.Module):
                 
         # super().__init__(modules)
 
-    def forward(self, x, meta):
+    def forward(self, x, meta, return_last=False):
         """
         """
-        return_last = self.return_last
         def is_last(layer):
             if isinstance(layer, Conv):
                 if not all(s == 1 for s in make_list(layer.stride)):
