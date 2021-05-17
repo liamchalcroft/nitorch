@@ -172,7 +172,7 @@ class HyperConv(tnn.Module):
     def forward(self, x, meta):
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-        meta_batch = torch.split(torch.squeeze(meta), self.meta_dim).to(device)
+        meta_batch = torch.split(torch.squeeze(meta), self.meta_dim)
         weight = None
         bias = None
         for meta_ in meta_batch:
