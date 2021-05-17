@@ -172,6 +172,7 @@ class HyperConv(tnn.Module):
                 torch.cat((weight,weight_), dim=1)
 
             if self.bias:
+                bias_ = self.head_b(meta_)
                 if not bias:
                     bias = bias_
                 else:
@@ -272,6 +273,7 @@ class HyperConvTranspose(tnn.Module):
                 torch.cat((weight,weight_), dim=1)
 
             if self.bias:
+                bias_ = self.head_b(meta_)
                 if not bias:
                     bias = bias_
                 else:
