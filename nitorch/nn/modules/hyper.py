@@ -95,8 +95,7 @@ class HyperGroupNorm(tnn.Module):
             else:
                 torch.cat((bias,bias_))
 
-        weight = tnn.Parameter(weight)
-        bias = tnn.Parameter(bias)
+        print()
 
         x = F.group_norm(x, len(meta), weight=weight, bias=bias)
         return x
@@ -196,10 +195,6 @@ class HyperConv(tnn.Module):
 
         if self.bias:
             bias /= len(meta_)
-
-        weight = tnn.Parameter(weight)
-        if self.bias:
-            bias = tnn.Parameter(bias)
 
         if self.batch_norm:
             x = self.batch_norm(x, meta)
@@ -319,10 +314,6 @@ class HyperConvTranspose(tnn.Module):
 
         if self.bias:
             bias /= len(meta_)
-
-        weight = tnn.Parameter(weight)
-        if self.bias:
-            bias = tnn.Parameter(bias)
 
         if self.batch_norm:
             x = self.batch_norm(x, meta)
