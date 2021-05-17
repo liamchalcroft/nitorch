@@ -155,10 +155,11 @@ class HyperConv(tnn.Module):
             self.head_b = tnn.Linear(16*(2**meta_depth), out_channels)
 
     def forward(self, x, meta):
-        meta_batch = torch.split(meta, self.meta_dim)
+        print(meta.shape)
+        meta = torch.split(meta, self.meta_dim)
         weight = None
         bias = None
-        for meta_ in meta_batch:
+        for meta_ in meta:
             print(meta_.shape)
             for block in self.blocks:
                 meta_ = block(meta_)
