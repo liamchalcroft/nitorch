@@ -2459,8 +2459,6 @@ class GroupNet(tnn.Sequential):
             buffers.append(x)
 
         if self.hyper:
-            print(x.shape)
-            print(meta.shape)
             x = self.first(x, meta)
         else:
             x = self.first(x)
