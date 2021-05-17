@@ -133,6 +133,8 @@ class HyperConv(tnn.Module):
         self.padding = padding
         self.batch_norm = batch_norm
         self.activation = activation
+        self.kernel_size = kernel_size
+        self.dilation = dilation
 
         if batch_norm == True:
             self.batch_norm = HyperGroupNorm(in_channels, meta_dim, meta_depth, meta_act)
@@ -252,6 +254,8 @@ class HyperConvTranspose(tnn.Module):
         self.padding = padding
         self.batch_norm = batch_norm
         self.activation = activation
+        self.kernel_size = kernel_size
+        self.dilation = dilation
 
         if batch_norm == True:
             self.batch_norm = HyperGroupNorm(in_channels, meta_dim, meta_depth, meta_act)
