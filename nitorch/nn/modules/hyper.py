@@ -51,6 +51,8 @@ class HyperGroupNorm(tnn.Module):
 
         super().__init__()
 
+        self.meta_dim = meta_dim
+
         if not meta_act:
             self.act = tnn.LeakyReLU()
         else:
@@ -70,9 +72,7 @@ class HyperGroupNorm(tnn.Module):
         self.head_b = tnn.Linear(16*(2**meta_depth), in_channels)
 
     def forward(self, x, meta):
-        # check for batch - input should be 1D vector so 2D indicates batch
-        if len(meta.shape) == 2:
-            meta = torch.unbind(meta)
+        meta = torch.split(meta, self.meta_dim)
         weight = None
         bias = None
         for meta_ in meta:
@@ -117,6 +117,7 @@ class HyperConv(tnn.Module):
 
         super().__init__()
 
+        self.meta_dim = meta_dim
         self.dim = dim
         self.stride = stride
         self.bias = bias
@@ -154,9 +155,7 @@ class HyperConv(tnn.Module):
             self.head_b = tnn.Linear(16*(2**meta_depth), out_channels)
 
     def forward(self, x, meta):
-        # check for batch - input should be 1D vector so 2D indicates batch
-        if len(meta.shape) == 2:
-            meta = torch.unbind(meta)
+        meta = torch.split(meta, self.meta_dim)
         weight = None
         bias = None
         for meta_ in meta:
@@ -216,6 +215,7 @@ class HyperConvTranspose(tnn.Module):
 
         super().__init__()
 
+        self.meta_dim = meta_dim
         self.dim = dim
         self.stride = stride
         self.bias = bias
@@ -253,9 +253,7 @@ class HyperConvTranspose(tnn.Module):
             self.head_b = tnn.Linear(16*(2**meta_depth), out_channels)
 
     def forward(self, x, meta):
-        # check for batch - input should be 1D vector so 2D indicates batch
-        if len(meta.shape) == 2:
-            meta = torch.unbind(meta)
+        meta = torch.split(meta, self.meta_dim)
         weight = None
         bias = None
         for meta_ in meta:
@@ -368,6 +366,7 @@ class HyperStack(tnn.Module):
         """
         super().__init__()
 
+        self.meta_dim = meta_dim
         self.dim = dim
         self.residual = residual
         self.return_last = return_last
