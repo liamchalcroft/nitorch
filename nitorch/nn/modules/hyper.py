@@ -170,7 +170,9 @@ class HyperConv(tnn.Module):
         self.output_padding = output_padding
 
     def forward(self, x, meta):
-        meta_batch = torch.split(torch.squeeze(meta), self.meta_dim)
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+        meta_batch = torch.split(torch.squeeze(meta), self.meta_dim).to(device)
         weight = None
         bias = None
         for meta_ in meta_batch:
@@ -196,6 +198,9 @@ class HyperConv(tnn.Module):
         if self.bias:
             bias /= len(meta_)
 
+        weight = weight.to(device)
+        bias = bias.to(device)
+
         if self.batch_norm:
             x = self.batch_norm(x, meta)
 
@@ -206,10 +211,10 @@ class HyperConv(tnn.Module):
 
         if self.dim == 2:
             x = F.conv2d(x, weight, bias, 
-            stride=self.stride, padding=padding, groups=len(meta))
+            stride=self.stride, padding=padding, groups=len(meta_batch))
         elif self.dim == 3:
             x = F.conv3d(x, weight, bias, 
-            stride=self.stride, padding=padding, groups=len(meta))
+            stride=self.stride, padding=padding, groups=len(meta_batch))
 
         # perform post-padding
         if self.output_padding:
@@ -325,10 +330,10 @@ class HyperConvTranspose(tnn.Module):
 
         if self.dim == 2:
             x = F.conv_transpose2d(x, weight, bias, 
-            stride=self.stride, padding=padding, groups=len(meta))
+            stride=self.stride, padding=padding, groups=len(meta_batch))
         elif self.dim == 3:
             x = F.conv_transpose3d(x, weight, bias, 
-            stride=self.stride, padding=padding, groups=len(meta))
+            stride=self.stride, padding=padding, groups=len(meta_batch))
 
         # perform post-padding
         if self.output_padding:
