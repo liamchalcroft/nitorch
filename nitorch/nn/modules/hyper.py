@@ -72,7 +72,7 @@ class HyperGroupNorm(tnn.Module):
         self.head_b = tnn.Linear(16*(2**meta_depth), in_channels)
 
     def forward(self, x, meta):
-        meta_batch = torch.split(torch.squeeze(meta), self.meta_dim, dim=1)
+        meta_batch = torch.split(torch.squeeze(meta), self.meta_dim)
         weight = None
         bias = None
         for meta_ in meta_batch:
@@ -157,7 +157,7 @@ class HyperConv(tnn.Module):
             self.head_b = tnn.Linear(16*(2**meta_depth), out_channels)
 
     def forward(self, x, meta):
-        meta_batch = torch.split(torch.squeeze(meta), self.meta_dim, dim=1)
+        meta_batch = torch.split(torch.squeeze(meta), self.meta_dim)
         weight = None
         bias = None
         for meta_ in meta_batch:
@@ -259,7 +259,7 @@ class HyperConvTranspose(tnn.Module):
             self.head_b = tnn.Linear(16*(2**meta_depth), out_channels)
 
     def forward(self, x, meta):
-        meta_batch = torch.split(torch.squeeze(meta), self.meta_dim, dim=1)
+        meta_batch = torch.split(torch.squeeze(meta), self.meta_dim)
         weight = None
         bias = None
         for meta_ in meta_batch:
