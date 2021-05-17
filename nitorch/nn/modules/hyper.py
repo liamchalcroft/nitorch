@@ -469,7 +469,7 @@ class HyperStack(tnn.Module):
 
         # print(modules)
 
-        self.modules = tnn.ModuleList(modules)
+        self.modules = modules
                 
         # super().__init__(modules)
 
