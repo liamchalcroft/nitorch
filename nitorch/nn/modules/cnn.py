@@ -2247,20 +2247,32 @@ class GroupNet(tnn.Sequential):
         modules = OrderedDict()
 
         # --- initial feature extraction --------------------------------
-        if fusion_depth:
+        if fusion_depth and not hyper:
             bn = tnn.GroupNorm(in_channels, in_channels)
         else:
             bn = batch_norm
 
-        modules['first'] = Conv(
-            dim,
-            in_channels=in_channels,
-            out_channels=encoder[0],
-            kernel_size=kernel_size,
-            activation=activation,
-            stride=stride,
-            batch_norm=bn,
-            padding='auto')
+        if hyper:
+            modules['first'] = HyperConv(
+                dim,
+                in_channels=in_channels,
+                out_channels=encoder[0],
+                meta_dim=meta_dim,
+                kernel_size=kernel_size,
+                activation=activation,
+                stride=stride,
+                batch_norm=bn,
+                padding='auto')
+        else:
+            modules['first'] = Conv(
+                dim,
+                in_channels=in_channels,
+                out_channels=encoder[0],
+                kernel_size=kernel_size,
+                activation=activation,
+                stride=stride,
+                batch_norm=bn,
+                padding='auto')
 
         # --- encoder -----------------------------------------------
         modules_encoder = []
@@ -2270,9 +2282,8 @@ class GroupNet(tnn.Sequential):
             cout = [cin] * (conv_per_layer - 1) + [cout]
             if fusion_depth:
                 if n < fusion_depth:
-                    bn = tnn.GroupNorm(in_channels, cin)
                     if hyper:
-                        bn = tnn.GroupNorm(in_channels, meta_dim)
+                        bn = batch_norm
                         modules_encoder.append(HyperStack(
                             dim,
                             in_channels=cin,
