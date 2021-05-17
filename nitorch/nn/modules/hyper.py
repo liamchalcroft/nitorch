@@ -477,7 +477,7 @@ class HyperStack(tnn.Module):
         """
         """
         def is_last(layer):
-            if isinstance(layer, Conv):
+            if isinstance(layer, HyperConv):
                 if not all(s == 1 for s in make_list(layer.stride)):
                     return True
             return False
