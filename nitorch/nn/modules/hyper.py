@@ -496,7 +496,7 @@ class HyperStack(tnn.Module):
                 last = [x]
                 if 'single' in return_last and 'cat' in return_last:
                     last = last * 2
-            if residual:
+            if self.residual:
                 x = x + layer(x, meta)
             else:
                 x = layer(x, meta)
