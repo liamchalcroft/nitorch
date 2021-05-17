@@ -202,8 +202,7 @@ class HyperConv(tnn.Module):
         padding = self.padding
 
         if padding == 'auto':
-            padding = [((k-1)*d)//2 for k, d in zip(self.kernel_size, self.dilation)]
-        padding = make_tuple(padding, self.dim)
+            padding = ((self.kernel_size-1)*self.dilation)//2
 
         if self.dim == 2:
             x = F.conv2d(x, weight, bias, 
@@ -322,8 +321,7 @@ class HyperConvTranspose(tnn.Module):
         padding = self.padding
 
         if padding == 'auto':
-            padding = [((k-1)*d)//2 for k, d in zip(self.kernel_size, self.dilation)]
-        padding = make_tuple(padding, self.dim)
+            padding = ((self.kernel_size-1)*self.dilation)//2
 
         if self.dim == 2:
             x = F.conv_transpose2d(x, weight, bias, 
