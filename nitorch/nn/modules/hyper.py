@@ -156,7 +156,7 @@ class HyperConv(tnn.Module):
 
     def forward(self, x, meta):
         print(meta.shape)
-        meta = torch.split(meta, self.meta_dim)
+        meta = torch.split(meta, self.meta_dim, dim=1)
         weight = None
         bias = None
         for meta_ in meta:
