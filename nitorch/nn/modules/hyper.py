@@ -182,7 +182,7 @@ class HyperConv(tnn.Module):
             bias /= len(meta_)
 
         if self.batch_norm:
-            x = self.batch_norm(x)
+            x = self.batch_norm(x, meta)
 
         if self.dim == 2:
             x = F.conv2d(x, weight, bias, 
@@ -283,7 +283,7 @@ class HyperConvTranspose(tnn.Module):
             bias /= len(meta_)
 
         if self.batch_norm:
-            x = self.batch_norm(x)
+            x = self.batch_norm(x, meta)
 
         if self.dim == 2:
             x = F.conv_transpose2d(x, weight, bias, 
