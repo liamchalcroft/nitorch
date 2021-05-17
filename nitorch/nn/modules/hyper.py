@@ -155,6 +155,7 @@ class HyperConv(tnn.Module):
         weight = None
         bias = None
         for meta_ in meta:
+            print(meta_.shape)
             for block in self.blocks:
                 meta_ = block(meta_)
                 meta_ = self.meta_act(meta_)
