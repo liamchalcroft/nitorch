@@ -164,7 +164,7 @@ class HyperConv(tnn.Module):
             self.head_b = tnn.Linear(16*(2**meta_depth), out_channels)
 
         self.padding = padding
-        self.padding_mode = pre_padding_mode
+        self.padding_mode = padding_mode
         self.output_padding = output_padding
 
     def forward(self, x, meta):
@@ -283,7 +283,7 @@ class HyperConvTranspose(tnn.Module):
             self.head_b = tnn.Linear(16*(2**meta_depth), out_channels)
 
         self.padding = padding
-        self.padding_mode = pre_padding_mode
+        self.padding_mode = padding_mode
         self.output_padding = output_padding
 
     def forward(self, x, meta):
