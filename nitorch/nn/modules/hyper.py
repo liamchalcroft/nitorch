@@ -8,7 +8,11 @@ from torch import nn as tnn
 import torch.nn.functional as F
 import numpy as np
 from .base import nitorchmodule
-from nitorch.core.py import make_list
+from nitorch.core.py import make_list, make_tuple
+from nitorch.core import utils
+
+
+_native_padding_mode = ('zeros', 'reflect', 'replicate', 'circular')
 
 
 def expand_list(x, n, crop=False, default=None):
@@ -112,7 +116,9 @@ class HyperConv(tnn.Module):
         meta_depth=1,
         meta_act=None,
         stride=1,
-        padding='same'):
+        padding='auto',
+        padding_mode='zeros',
+        dilation=1):
 
         """ TODO: Add documentation
         """
@@ -156,6 +162,21 @@ class HyperConv(tnn.Module):
         if bias:
             self.head_b = tnn.Linear(16*(2**meta_depth), out_channels)
 
+        # deal with padding
+        pre_padding = 0
+        pre_padding_mode = None
+        post_padding = 0
+        if (padding == 'auto' or padding_mode not in _native_padding_mode):
+            pre_padding = padding
+            pre_padding_mode = padding_mode
+            padding = 0
+            padding_mode = 'zeros'
+            post_padding = output_padding
+            output_padding = {}
+        self._pre_padding = pre_padding
+        self._padding_mode = pre_padding_mode
+        self._post_padding = post_padding
+
     def forward(self, x, meta):
         meta_batch = torch.split(torch.squeeze(meta), self.meta_dim)
         weight = None
@@ -186,12 +207,25 @@ class HyperConv(tnn.Module):
         if self.batch_norm:
             x = self.batch_norm(x, meta)
 
+        if self.padding == 'auto':
+            padding = [((k-1)*d)//2 for k, d in zip(self.kernel_size, self.dilation)]
+        padding = make_tuple(padding, self.dim)
+        
+        # perform pre-padding
+        if self.padding_mode not in _native_padding_mode:
+            x = utils.pad(x, padding, mode=self.padding_mode, side='both')
+            padding = 0
+
         if self.dim == 2:
             x = F.conv2d(x, weight, bias, 
             stride=self.stride, padding=self.padding, groups=len(meta))
         elif self.dim == 3:
             x = F.conv3d(x, weight, bias, 
             stride=self.stride, padding=self.padding, groups=len(meta))
+
+        # perform post-padding
+        if self._post_padding:
+            x = utils.pad(x, self._post_padding, side='right')
 
         if self.activation:
             x = self.activation(x)
@@ -214,7 +248,9 @@ class HyperConvTranspose(tnn.Module):
         meta_depth=1,
         meta_act=None,
         stride=1,
-        padding='same'):
+        padding='auto',
+        padding_mode='zeros',
+        dilation=1):
 
         """ TODO: Add documentation
         """
@@ -258,6 +294,20 @@ class HyperConvTranspose(tnn.Module):
         if bias:
             self.head_b = tnn.Linear(16*(2**meta_depth), out_channels)
 
+        # deal with padding
+        pre_padding = 0
+        pre_padding_mode = None
+        post_padding = 0
+        if (padding == 'auto' or padding_mode not in _native_padding_mode):
+            pre_padding = padding
+            pre_padding_mode = padding_mode
+            padding = 0
+            padding_mode = 'zeros'
+            output_padding = {'output_padding': output_padding}
+        self._pre_padding = pre_padding
+        self._padding_mode = pre_padding_mode
+        self._post_padding = post_padding
+
     def forward(self, x, meta):
         meta_batch = torch.split(torch.squeeze(meta), self.meta_dim)
         weight = None
@@ -287,12 +337,25 @@ class HyperConvTranspose(tnn.Module):
         if self.batch_norm:
             x = self.batch_norm(x, meta)
 
+        if self.padding == 'auto':
+            padding = [((k-1)*d)//2 for k, d in zip(self.kernel_size, self.dilation)]
+        padding = make_tuple(padding, self.dim)
+        
+        # perform pre-padding
+        if self.padding_mode not in _native_padding_mode:
+            x = utils.pad(x, padding, mode=self.padding_mode, side='both')
+            padding = 0
+
         if self.dim == 2:
             x = F.conv_transpose2d(x, weight, bias, 
             stride=self.stride, padding=self.padding, groups=len(meta))
         elif self.dim == 3:
             x = F.conv_transpose3d(x, weight, bias, 
             stride=self.stride, padding=self.padding, groups=len(meta))
+
+        # perform post-padding
+        if self.output_padding:
+            x = utils.pad(x, self.output_padding, side='right')
 
         if self.activation:
             x = self.activation(x)
