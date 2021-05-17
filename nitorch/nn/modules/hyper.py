@@ -478,6 +478,7 @@ class HyperStack(tnn.Module):
     def forward(self, x, meta):
         """
         """
+        return_last = self.return_last
         def is_last(layer):
             if isinstance(layer, Conv):
                 if not all(s == 1 for s in make_list(layer.stride)):
