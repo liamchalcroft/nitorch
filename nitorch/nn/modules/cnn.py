@@ -2449,6 +2449,7 @@ class GroupNet(tnn.Sequential):
 
         if self.hyper:
             x = self.first(x, meta)
+            print(x.shape)
         else:
             x = self.first(x)
 
