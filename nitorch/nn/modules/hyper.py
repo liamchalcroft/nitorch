@@ -58,9 +58,9 @@ class HyperGroupNorm(tnn.Module):
         self.meta_dim = meta_dim
 
         if not meta_act:
-            self.act = tnn.LeakyReLU()
+            self.meta_act = tnn.LeakyReLU()
         else:
-            self.act = meta_act
+            self.meta_act = meta_act
 
         # define network layers
         shared_modules = []
