@@ -235,7 +235,7 @@ class HyperConv(tnn.Module):
                     bias = bias.flatten()
                     bias_grp = torch.chunk(bias, grp)
                 else:
-                    bias_grp = torch.tensor([None] * len(x_grp))
+                    bias_grp = [None] * len(x_grp)
                 x_grp = [F.conv2d(x_grp[i].to(device), weight_grp[i].to(device), bias_grp[i].to(device), 
                 stride=self.stride, padding=padding) for i in range(len(x_grp))]
                 x = torch.cat(x_grp, dim=1).to(device)
@@ -253,7 +253,7 @@ class HyperConv(tnn.Module):
                     bias = bias.flatten()
                     bias_grp = torch.chunk(bias, grp)
                 else:
-                    bias_grp = torch.tensor([None] * len(x_grp))
+                    bias_grp = [None] * len(x_grp)
                 x_grp = [F.conv3d(x_grp[i].to(device), weight_grp[i].to(device), bias_grp[i].to(device), 
                 stride=self.stride, padding=padding) for i in range(len(x_grp))]
                 x = torch.cat(x_grp, dim=1).to(device)
