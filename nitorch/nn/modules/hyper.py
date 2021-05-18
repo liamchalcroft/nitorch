@@ -163,6 +163,8 @@ class HyperConv(tnn.Module):
         elif dim == 3:
             self.shape = [out_channels, in_channels, kernel_size, kernel_size, kernel_size]
 
+
+        print('Target weight shape: {}'.format(self.shape))
         self.head_w = tnn.Linear(16*(2**meta_depth), np.prod(self.shape))
         if bias:
             self.head_b = tnn.Linear(16*(2**meta_depth), out_channels)
@@ -175,6 +177,7 @@ class HyperConv(tnn.Module):
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
         meta_batch = torch.split(torch.squeeze(meta), self.meta_dim)
+        print('Num groups: {}'.format(len(meta_batch)))
         weight = None
         bias = None
         for meta_ in meta_batch:
