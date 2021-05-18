@@ -178,7 +178,6 @@ class HyperConv(tnn.Module):
     def forward(self, x, meta):
         # Batch seems to get squeezed in hyperstack
 
-        print('Input shape: {}'.format(x.shape))
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         meta_batch = torch.split(torch.squeeze(meta), self.meta_dim)
         weight = []
@@ -218,8 +217,6 @@ class HyperConv(tnn.Module):
 
         if padding == 'auto':
             padding = ((self.kernel_size-1)*self.dilation)//2
-
-        print('Weight shape: {}'.format(weight.shape))
 
         # Standard 'groups' wont work here... Need to manually apply separate convolutions.
         # Apply by splitting weights and input, and concatenating after convolution
@@ -267,8 +264,6 @@ class HyperConv(tnn.Module):
 
         if self.activation:
             x = self.activation(x)
-
-        print('Output shape: {}'.format(x.shape))
 
         return x
 
@@ -537,10 +532,12 @@ class HyperStack(tnn.Module):
         if not isinstance(return_last, str):
             return_last = 'single' if return_last else ''
 
+        print('1. {}'.format(x.shape))
         last = []
         if 'single' in return_last:
             last.append(x[0])
         x = torch.cat(x, 1) if len(x) > 1 else x[0]
+        print('2. {}'.format(x.shape))
         if 'cat' in return_last:
             last.append(x)
         for layer in self.modules:
@@ -553,6 +550,6 @@ class HyperStack(tnn.Module):
             else:
                 x = layer(x, meta)
 
-        print('Output shape from hyperstack: {}'.format(x.shape))
+        print('3. {}'.format(x.shape))
 
         return (x, *last) if return_last else x
