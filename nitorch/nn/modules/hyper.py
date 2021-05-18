@@ -225,6 +225,7 @@ class HyperConv(tnn.Module):
         # can look at also using e.g. channelshuffle, stitch to switch between fully separate and interconnected
         if self.dim == 2:
             if self.grouppool==True:
+                print('Group-pool')
                 if self.bias:
                     bias = torch.mean(bias, dim=0)
                 x = F.conv2d(x, weight, bias, 
