@@ -2478,21 +2478,16 @@ class GroupNet(tnn.Sequential):
         else:
             x = self.first(x)
 
-        print('Output shape after first layer: {}'.format(x.shape))
-
         # encoder
         for i, layer in enumerate(self.encoder):
-            print('Pre-conv shape: {}'.format(x.shape))
             if self.hyper:
                 x, buffer = layer(x, meta, return_last=True)
             else:
                 x, buffer = layer(x, return_last=True)
-            print('Post-conv shape: {}'.format(x.shape))
             if self.fusion_depth:
                 if i < self.fusion_depth:
                     # group-pooling
                     pool = self.group[i+1]
-                    print(pool)
                     if self.hyper:
                         buffer = pool(buffer, meta)
                     else:
