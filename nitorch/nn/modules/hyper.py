@@ -204,7 +204,8 @@ class HyperConv(tnn.Module):
             bias /= len(meta_)
 
         weight = weight.to(device)
-        weight = torch.split(weight, len(meta_batch))
+        if self.grouppool==False:
+            weight = torch.split(weight, len(meta_batch))
         bias = bias.to(device)
 
         if self.batch_norm:
