@@ -218,7 +218,7 @@ class HyperConv(tnn.Module):
                 x_grp = torch.split(x, grp, dim=1)
                 if self.bias:
                     bias = bias.flatten()
-                    bias_grp = torch.split(bias, grp, dim=1)
+                    bias_grp = torch.split(bias, grp)
                 else:
                     bias_grp = [None] * len(x_grp)
                 x_grp = [F.conv2d(x_grp[i], weight_grp[i], bias_grp[i], 
@@ -236,7 +236,7 @@ class HyperConv(tnn.Module):
                 x_grp = torch.split(x, grp, dim=1)
                 if self.bias:
                     bias = bias.flatten()
-                    bias_grp = torch.split(bias, grp, dim=1)
+                    bias_grp = torch.split(bias, grp)
                 else:
                     bias_grp = [None] * len(x_grp)
                 x_grp = [F.conv3d(x_grp[i], weight_grp[i], bias_grp[i], 
