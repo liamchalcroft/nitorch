@@ -100,11 +100,7 @@ class HyperGroupNorm(tnn.Module):
 
         weight = torch.cat(weight)
         bias = torch.cat(bias)
-        try:
-            x = F.group_norm(x, len(meta), weight=weight, bias=bias)
-        except:
-            print('Metadata: {}\nImage shape: {}'.format(meta, x.shape))
-            pass
+        x = F.group_norm(x, len(meta), weight=weight, bias=bias)
         return x
 
 
