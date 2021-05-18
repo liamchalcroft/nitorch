@@ -206,20 +206,39 @@ class HyperConv(tnn.Module):
 
         print('Weight shape: {}'.format(weight.shape))
 
+        # Standard 'groups' wont work here... Need to manually apply separate convolutions.
+        # Apply by splitting weights and input, and concatenating after convolution
+        # can look at also using e.g. channelshuffle, stitch to switch between fully separate and interconnected
         if self.dim == 2:
             if self.grouppool==True:
                 x = F.conv2d(x, weight, bias, 
-                stride=self.stride, padding=padding, groups=1)
+                stride=self.stride, padding=padding)
             else:
-                x = F.conv2d(x, weight, bias, 
-                stride=self.stride, padding=padding, groups=len(meta_batch))
+                grp = len(meta_batch)
+                weight_grp = torch.split(weight, grp, dim=1)
+                x_grp = torch.split(x, grp, dim=1)
+                if self.bias:
+                    bias_grp = torch.split(bias, grp, dim=1)
+                else:
+                    bias_grp = [None] * len(x_grp)
+                x_grp = [F.conv2d(x_grp[i], weight_grp[i], bias_grp[i], 
+                stride=self.stride, padding=padding) for i in range(len(x_grp))]
+                x = torch.cat(x_grp, dim=1)
         elif self.dim == 3:
             if self.grouppool==True:
                 x = F.conv3d(x, weight, bias, 
-                stride=self.stride, padding=padding, groups=1)
+                stride=self.stride, padding=padding)
             else:    
-                x = F.conv3d(x, weight, bias, 
-                stride=self.stride, padding=padding, groups=len(meta_batch))
+                grp = len(meta_batch)
+                weight_grp = torch.split(weight, grp, dim=1)
+                x_grp = torch.split(x, grp, dim=1)
+                if self.bias:
+                    bias_grp = torch.split(bias, grp, dim=1)
+                else:
+                    bias_grp = [None] * len(x_grp)
+                x_grp = [F.conv3d(x_grp[i], weight_grp[i], bias_grp[i], 
+                stride=self.stride, padding=padding) for i in range(len(x_grp))]
+                x = torch.cat(x_grp, dim=1)
 
         # perform post-padding
         if self.output_padding:
