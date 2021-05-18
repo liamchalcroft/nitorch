@@ -2511,6 +2511,8 @@ class GroupNet(tnn.Sequential):
                     x, buffer = layer(x, meta, return_last=True)
                 else:
                     x, buffer = layer(x, return_last=True)
+            else:
+                x, buffer = layer(x, return_last=True)
             if self.fusion_depth:
                 if i < self.fusion_depth:
                     # group-pooling
@@ -2520,7 +2522,7 @@ class GroupNet(tnn.Sequential):
                     else:
                         buffer = pool(buffer)
             buffers.append(buffer)
-            print('Buffer shape: {}'.format(buffer.shape))
+            print('Buffer shape: ', buffer.shape)
 
         pad = self.get_padding(buffers[-1].shape, x.shape, self.bottleneck)
 
