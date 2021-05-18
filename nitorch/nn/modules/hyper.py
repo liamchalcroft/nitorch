@@ -187,11 +187,11 @@ class HyperConv(tnn.Module):
 
         if self.bias:
             torch.stack(bias)
+            bias = bias.to(device)
 
         weight = torch.cat(weight, dim=1)
 
         weight = weight.to(device)
-        bias = bias.to(device)
 
         if self.batch_norm:
             x = self.batch_norm(x, meta)
