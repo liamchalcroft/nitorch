@@ -534,17 +534,12 @@ class HyperStack(tnn.Module):
 
         print('1. {}'.format(x.shape))
         last = []
-        if 'single' in return_last:
-            last.append(x[0])
-        x = torch.cat(x, 1) if len(x) > 1 else x[0]
+        if return_last:
+            last = [x]
         print('2. {}'.format(x.shape))
-        if 'cat' in return_last:
-            last.append(x)
         for layer in self.modules:
             if return_last and not is_last(layer):
                 last = [x]
-                if 'single' in return_last and 'cat' in return_last:
-                    last = last * 2
             if self.residual:
                 x = x + layer(x, meta)
             else:
@@ -552,4 +547,4 @@ class HyperStack(tnn.Module):
 
         print('3. {}'.format(x.shape))
 
-        return (x, *last) if return_last else x
+        return (x, last) if return_last else x
