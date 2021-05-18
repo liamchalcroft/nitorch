@@ -2321,17 +2321,31 @@ class GroupNet(tnn.Sequential):
                         groups=in_channels
                     ))
                 elif n == fusion_depth:
-                    bn = False
-                    modules_encoder.append(EncodingLayer(
-                        dim,
-                        in_channels=cin,
-                        out_channels=cout,
-                        kernel_size=kernel_size,
-                        stride=stride,
-                        activation=activation,
-                        batch_norm=bn,
-                        residual=residual
-                    ))
+                    bn = batch_norm
+                    if hyper:
+                        modules_encoder.append(HyperStack(
+                            dim,
+                            in_channels=cin,
+                            out_channels=cout,
+                            meta_dim=meta_dim,
+                            kernel_size=kernel_size,
+                            stride=stride,
+                            activation=activation,
+                            batch_norm=bn,
+                            residual=residual,
+                            grouppool=True
+                        ))
+                    else:
+                        modules_encoder.append(EncodingLayer(
+                            dim,
+                            in_channels=cin,
+                            out_channels=cout,
+                            kernel_size=kernel_size,
+                            stride=stride,
+                            activation=activation,
+                            batch_norm=bn,
+                            residual=residual
+                        ))
                 else:
                     bn = batch_norm
                     modules_encoder.append(EncodingLayer(

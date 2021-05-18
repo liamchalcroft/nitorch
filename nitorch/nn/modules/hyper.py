@@ -409,7 +409,10 @@ class HyperStack(tnn.Module):
             activation=True,
             batch_norm=True,
             bias=True,
-            residual=False):
+            residual=False,
+            fusion=False,
+            return_last=False,
+            grouppool=False):
         """
 
         Parameters
@@ -508,7 +511,8 @@ class HyperStack(tnn.Module):
                 activation=a,
                 batch_norm=bn,
                 stride=stride,
-                bias=b))
+                bias=b,
+                grouppool=grouppool))
         else:
             modules.append(HyperConv(
                 dim, i, o, meta_dim,
@@ -516,7 +520,8 @@ class HyperStack(tnn.Module):
                 activation=a,
                 batch_norm=bn,
                 stride=stride,
-                bias=b))
+                bias=b,
+                grouppool=grouppool))
 
         # print(modules)
 
