@@ -76,13 +76,21 @@ class HyperGroupNorm(tnn.Module):
         self.head_b = tnn.Linear(16*(2**meta_depth), in_channels)
 
     def forward(self, x, meta):
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         meta_batch = torch.split(torch.squeeze(meta), self.meta_dim)
         weight = []
         bias = []
+
+        self.meta_act = self.meta_act.to(device)
+        self.head_w = self.head_w.to(device)
+        self.head_b = self.head_b.to(device)
+        
         for meta_ in meta_batch:
+            meta_ = meta_.to(device)
             for block in self.blocks:
+                block = block.to(device)
                 meta_ = block(meta_)
-                meta_ = self.act(meta_)
+                meta_ = self.meta_act(meta_)
 
             weight_= self.head_w(meta_)
             bias_= self.head_b(meta_)
@@ -172,22 +180,24 @@ class HyperConv(tnn.Module):
         meta_batch = torch.split(torch.squeeze(meta), self.meta_dim)
         weight = []
         bias = []
+
+        self.meta_act = self.meta_act.to(device)
+        self.head_w = self.head_w.to(device)
+        if self.bias:
+            self.head_b = self.head_b.to(device)
+        
         for meta_ in meta_batch:
             meta_ = meta_.to(device)
             for block in self.blocks:
                 block = block.to(device)
                 meta_ = block(meta_)
-                self.meta_act = self.meta_act.to(device)
                 meta_ = self.meta_act(meta_)
-
-            self.head_w = self.head_w.to(device)
 
             weight_flat = self.head_w(meta_)
             weight_ = weight_flat.reshape(self.shape)
             weight.append(weight_)
 
             if self.bias:
-                self.head_b = self.head_b.to(device)
                 bias_ = self.head_b(meta_)
                 bias.append(bias_)
 
