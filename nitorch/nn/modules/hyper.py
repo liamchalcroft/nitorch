@@ -77,7 +77,7 @@ class HyperGroupNorm(tnn.Module):
 
     def forward(self, x, meta):
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        meta_batch = torch.split(torch.squeeze(meta), self.meta_dim)
+        meta_batch = torch.split(meta[0], self.meta_dim)
         weight = []
         bias = []
 
