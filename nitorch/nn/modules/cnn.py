@@ -2382,7 +2382,7 @@ class GroupNet(tnn.Sequential):
                 else:
                     group_pool.append(Conv(dim=dim, in_channels=in_channels,
                         out_channels=1, kernel_size=1))
-            for i in range(fusion_depth):
+            for i in range(fusion_depth+1):
                 cin = encoder[i]
                 cout = cin // in_channels
                 print('cin: {}, cout: {}'.format(cin, cout))
