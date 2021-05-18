@@ -215,7 +215,7 @@ class HyperConv(tnn.Module):
         if padding == 'auto':
             padding = ((self.kernel_size-1)*self.dilation)//2
 
-        print('Weight shape: {}'.format(weight.shape))
+        # print('Weight shape: {}'.format(weight.shape))
 
         if self.dim == 2:
             if self.grouppool==True:
