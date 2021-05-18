@@ -76,6 +76,7 @@ class HyperGroupNorm(tnn.Module):
         self.head_b = tnn.Linear(16*(2**meta_depth), in_channels)
 
     def forward(self, x, meta):
+        print(meta)
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         meta_batch = torch.split(torch.squeeze(meta), self.meta_dim)
         weight = []
