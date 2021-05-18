@@ -77,8 +77,8 @@ class HyperGroupNorm(tnn.Module):
 
     def forward(self, x, meta):
         meta_batch = torch.split(torch.squeeze(meta), self.meta_dim)
-        weight = None
-        bias = None
+        weight = []
+        bias = []
         for meta_ in meta_batch:
             for block in self.blocks:
                 meta_ = block(meta_)
@@ -86,16 +86,13 @@ class HyperGroupNorm(tnn.Module):
 
             weight_= self.head_w(meta_)
             bias_= self.head_b(meta_)
-            if weight is None:
-                weight = weight_
-            else:
-                torch.cat((weight,weight_))
+            
+            weight.append(weight_)
+            bias.append(bias_)
             print(weight)
-            if bias is None:
-                bias = bias_
-            else:
-                torch.cat((bias,bias_))
 
+        weight = torch.stack(weight)
+        bias = torch.stack(bias)
         print('Groupnorm weight shape: {}'.format(weight.shape))
 
         x = F.group_norm(x, len(meta), weight=weight, bias=bias)
