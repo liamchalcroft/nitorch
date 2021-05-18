@@ -217,14 +217,14 @@ class HyperConv(tnn.Module):
         print('Weight shape: {}'.format(weight.shape))
 
         if self.dim == 2:
-            if self.grouppool:
+            if self.grouppool==True:
                 x = F.conv2d(x, weight, bias, 
                 stride=self.stride, padding=padding, groups=1)
             else:
                 x = F.conv2d(x, weight, bias, 
                 stride=self.stride, padding=padding, groups=len(meta_batch))
         elif self.dim == 3:
-            if self.grouppool:
+            if self.grouppool==True:
                 x = F.conv3d(x, weight, bias, 
                 stride=self.stride, padding=padding, groups=1)
             else:    
