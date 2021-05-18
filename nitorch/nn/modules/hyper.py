@@ -89,11 +89,9 @@ class HyperGroupNorm(tnn.Module):
             
             weight.append(weight_)
             bias.append(bias_)
-            print(weight)
 
         weight = torch.squeeze(torch.stack(weight))
         bias = torch.squeeze(torch.stack(bias))
-        print('Groupnorm weight shape: {}'.format(weight.shape))
 
         x = F.group_norm(x, len(meta), weight=weight, bias=bias)
         return x
@@ -161,8 +159,6 @@ class HyperConv(tnn.Module):
         elif dim == 3:
             self.shape = [out_channels, in_channels, kernel_size, kernel_size, kernel_size]
 
-
-        print('Target weight shape: {}'.format(self.shape))
         self.head_w = tnn.Linear(16*(2**meta_depth), np.prod(self.shape))
         if bias:
             self.head_b = tnn.Linear(16*(2**meta_depth), out_channels)
@@ -173,33 +169,29 @@ class HyperConv(tnn.Module):
 
     def forward(self, x, meta):
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        print('Input shape: {}'.format(x.shape))
         meta_batch = torch.split(torch.squeeze(meta), self.meta_dim)
-        print('Num groups: {}'.format(len(meta_batch)))
-        weight = None
+        weight = []
         bias = None
         for meta_ in meta_batch:
-            print(meta_.shape)
             for block in self.blocks:
                 meta_ = block(meta_)
                 meta_ = self.meta_act(meta_)
 
             weight_flat = self.head_w(meta_)
             weight_ = weight_flat.reshape(self.shape)
-            if weight is None:
-                weight = weight_
-            else:
-                torch.cat((weight,weight_), dim=1)
+            weight.append(weight_)
 
             if self.bias:
                 bias_ = self.head_b(meta_)
-                if bias is None:
+                if bias == None:
                     bias = bias_
                 else:
-                    bias += self.head_b(meta_)
+                    bias += bias_
 
         if self.bias:
             bias /= len(meta_)
+
+        weight = torch.stack(weight, dim=1)
 
         weight = weight.to(device)
         bias = bias.to(device)
