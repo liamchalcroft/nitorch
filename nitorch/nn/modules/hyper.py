@@ -95,7 +95,7 @@ class HyperGroupNorm(tnn.Module):
             else:
                 torch.cat((bias,bias_))
 
-        print()
+        print('Groupnorm weight shape: {}'.format(weight.shape))
 
         x = F.group_norm(x, len(meta), weight=weight, bias=bias)
         return x
