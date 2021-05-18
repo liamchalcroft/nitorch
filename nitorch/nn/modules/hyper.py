@@ -90,6 +90,7 @@ class HyperGroupNorm(tnn.Module):
                 weight = weight_
             else:
                 torch.cat((weight,weight_))
+            print(weight)
             if bias is None:
                 bias = bias_
             else:
