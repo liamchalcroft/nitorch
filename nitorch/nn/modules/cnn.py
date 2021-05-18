@@ -2484,6 +2484,8 @@ class GroupNet(tnn.Sequential):
             Output features
 
         """
+        if x.shape[1] == 1:
+            print(meta)
 
         if self.hyper == True:
             if meta==None:
