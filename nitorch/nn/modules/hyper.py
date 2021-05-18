@@ -176,6 +176,8 @@ class HyperConv(tnn.Module):
         self.output_padding = output_padding
 
     def forward(self, x, meta):
+
+        print('Input shape: {}'.format(x.shape))
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         meta_batch = torch.split(torch.squeeze(meta), self.meta_dim)
         weight = []
@@ -264,6 +266,8 @@ class HyperConv(tnn.Module):
 
         if self.activation:
             x = self.activation(x)
+
+        print('Output shape: {}'.format(x.shape))
 
         return x
 
