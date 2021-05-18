@@ -91,8 +91,8 @@ class HyperGroupNorm(tnn.Module):
             bias.append(bias_)
             print(weight)
 
-        weight = torch.stack(weight)
-        bias = torch.stack(bias)
+        weight = torch.squeeze(torch.stack(weight))
+        bias = torch.squeeze(torch.stack(bias))
         print('Groupnorm weight shape: {}'.format(weight.shape))
 
         x = F.group_norm(x, len(meta), weight=weight, bias=bias)
