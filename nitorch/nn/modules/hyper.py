@@ -175,7 +175,7 @@ class HyperConv(tnn.Module):
 
     def forward(self, x, meta):
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
+        print('Input shape: {}'.format(x.shape))
         meta_batch = torch.split(torch.squeeze(meta), self.meta_dim)
         print('Num groups: {}'.format(len(meta_batch)))
         weight = None
