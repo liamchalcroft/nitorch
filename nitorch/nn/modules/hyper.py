@@ -236,7 +236,7 @@ class HyperConv(tnn.Module):
                     bias_grp = torch.chunk(bias, grp)
                 else:
                     bias_grp = [None] * len(x_grp)
-                x_grp = [F.conv2d(x_grp[i].to(device), weight_grp[i].to(device), bias_grp[i].to(device), 
+                x_grp = [F.conv2d(x_grp[i].to(device), weight_grp[i].to(device), bias_grp[i], 
                 stride=self.stride, padding=padding) for i in range(len(x_grp))]
                 x = torch.cat(x_grp, dim=1).to(device)
         elif self.dim == 3:
@@ -254,7 +254,7 @@ class HyperConv(tnn.Module):
                     bias_grp = torch.chunk(bias, grp)
                 else:
                     bias_grp = [None] * len(x_grp)
-                x_grp = [F.conv3d(x_grp[i].to(device), weight_grp[i].to(device), bias_grp[i].to(device), 
+                x_grp = [F.conv3d(x_grp[i].to(device), weight_grp[i].to(device), bias_grp[i], 
                 stride=self.stride, padding=padding) for i in range(len(x_grp))]
                 x = torch.cat(x_grp, dim=1).to(device)
 
@@ -404,7 +404,7 @@ class HyperStack(tnn.Module):
             pool=None,
             activation=True,
             batch_norm=True,
-            bias=False,
+            bias=True,
             residual=False):
         """
 
