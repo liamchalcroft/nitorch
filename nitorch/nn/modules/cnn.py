@@ -2345,6 +2345,7 @@ class GroupNet(tnn.Sequential):
             for i in range(fusion_depth):
                 cin = encoder[i]
                 cout = cin // in_channels
+                print('cin: {}, cout: {}'.format(cin, cout))
                 if hyper:
                     group_pool.append(HyperConv(dim=dim, in_channels=cin,
                     out_channels=cout, meta_dim=meta_dim, kernel_size=1, grouppool=True))
