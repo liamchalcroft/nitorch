@@ -2338,7 +2338,7 @@ class GroupNet(tnn.Sequential):
             group_pool = []
             if hyper:
                 group_pool.append(HyperConv(dim=dim, in_channels=in_channels,
-                    out_channels=1, meta_dim=meta_dim, kernel_size=1))
+                    out_channels=1, meta_dim=meta_dim, kernel_size=1, grouppool=True))
             else:
                 group_pool.append(Conv(dim=dim, in_channels=in_channels,
                     out_channels=1, kernel_size=1))
@@ -2347,7 +2347,7 @@ class GroupNet(tnn.Sequential):
                 cout = cin // in_channels
                 if hyper:
                     group_pool.append(HyperConv(dim=dim, in_channels=cin,
-                    out_channels=cout, meta_dim=meta_dim, kernel_size=1))
+                    out_channels=cout, meta_dim=meta_dim, kernel_size=1, grouppool=True))
                 else:
                     group_pool.append(Conv(dim=dim, in_channels=cin,
                     out_channels=cout, kernel_size=1))
