@@ -2264,15 +2264,27 @@ class GroupNet(tnn.Sequential):
                 batch_norm=bn,
                 padding='auto')
         else:
-            modules['first'] = Conv(
-                dim,
-                in_channels=in_channels,
-                out_channels=encoder[0],
-                kernel_size=kernel_size,
-                activation=activation,
-                stride=stride,
-                batch_norm=bn,
-                padding='auto')
+            if fusion depth:
+                modules['first'] = Conv(
+                    dim,
+                    in_channels=in_channels,
+                    out_channels=encoder[0],
+                    kernel_size=kernel_size,
+                    activation=activation,
+                    stride=stride,
+                    batch_norm=bn,
+                    padding='auto',
+                    groups=in_channels)
+            else:
+                modules['first'] = Conv(
+                    dim,
+                    in_channels=in_channels,
+                    out_channels=encoder[0],
+                    kernel_size=kernel_size,
+                    activation=activation,
+                    stride=stride,
+                    batch_norm=bn,
+                    padding='auto')
 
         # --- encoder -----------------------------------------------
         modules_encoder = []
@@ -2305,7 +2317,8 @@ class GroupNet(tnn.Sequential):
                         stride=stride,
                         activation=activation,
                         batch_norm=bn,
-                        residual=residual
+                        residual=residual,
+                        groups=in_channels
                     ))
                 else:
                     bn = batch_norm
