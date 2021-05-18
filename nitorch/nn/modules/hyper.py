@@ -204,8 +204,6 @@ class HyperConv(tnn.Module):
             bias /= len(meta_)
 
         weight = weight.to(device)
-        if self.grouppool==False:
-            weight = torch.split(weight, len(meta_batch))
         bias = bias.to(device)
 
         if self.batch_norm:
@@ -216,7 +214,7 @@ class HyperConv(tnn.Module):
         if padding == 'auto':
             padding = ((self.kernel_size-1)*self.dilation)//2
 
-        # print('Weight shape: {}'.format(weight.shape))
+        print('Weight shape: {}'.format(weight.shape))
 
         if self.dim == 2:
             if self.grouppool==True:
