@@ -176,6 +176,7 @@ class HyperConv(tnn.Module):
         self.output_padding = output_padding
 
     def forward(self, x, meta):
+        print(meta.shape)
         # Batch seems to get squeezed in hyperstack
 
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
