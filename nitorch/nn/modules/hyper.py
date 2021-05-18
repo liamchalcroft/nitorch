@@ -536,14 +536,11 @@ class HyperStack(tnn.Module):
         if not isinstance(return_last, str):
             return_last = 'single' if return_last else ''
 
-        # if len(x) > 1:
-        #     x = x[0]
-        last = []
         if return_last:
-            last = [x]
+            last = x
         for layer in self.modules:
             if return_last and not is_last(layer):
-                last = [x]
+                last = x
             if self.residual:
                 x = x + layer(x, meta)
             else:
