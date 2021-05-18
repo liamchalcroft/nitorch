@@ -2480,9 +2480,10 @@ class GroupNet(tnn.Sequential):
 
         # encoder
         for i, layer in enumerate(self.encoder):
-            if self.hyper:
+            if self.hyper and self.fusion_depth and self.fusion_depth>i:
                 x, buffer = layer(x, meta, return_last=True)
             else:
+                print()
                 x, buffer = layer(x, return_last=True)
             if self.fusion_depth:
                 if i < self.fusion_depth:
@@ -2493,6 +2494,7 @@ class GroupNet(tnn.Sequential):
                     else:
                         buffer = pool(buffer)
             buffers.append(buffer)
+            print('Buffer shape: {}'.format(buffer.shape))
 
         pad = self.get_padding(buffers[-1].shape, x.shape, self.bottleneck)
 
