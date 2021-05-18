@@ -218,6 +218,7 @@ class HyperConv(tnn.Module):
                 x_grp = torch.split(x, grp, dim=1)
                 if self.bias:
                     bias = bias.flatten()
+                    print('Flat bias shape: {}'.format(bias.shape))
                     bias_grp = torch.split(bias, grp)
                 else:
                     bias_grp = [None] * len(x_grp)
