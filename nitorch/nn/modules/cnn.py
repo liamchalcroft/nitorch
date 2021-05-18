@@ -2264,7 +2264,7 @@ class GroupNet(tnn.Sequential):
                 batch_norm=bn,
                 padding='auto')
         else:
-            if fusion depth:
+            if fusion_depth:
                 modules['first'] = Conv(
                     dim,
                     in_channels=in_channels,
