@@ -265,6 +265,8 @@ class HyperConv(tnn.Module):
         if self.activation:
             x = self.activation(x)
 
+        print(x.shape)
+
         return x
 
 
@@ -532,11 +534,9 @@ class HyperStack(tnn.Module):
         if not isinstance(return_last, str):
             return_last = 'single' if return_last else ''
 
-        print('1. {}'.format(x.shape))
         last = []
         if return_last:
             last = [x]
-        print('2. {}'.format(x.shape))
         for layer in self.modules:
             if return_last and not is_last(layer):
                 last = [x]
@@ -544,7 +544,5 @@ class HyperStack(tnn.Module):
                 x = x + layer(x, meta)
             else:
                 x = layer(x, meta)
-
-        print('3. {}'.format(x.shape))
 
         return (x, last) if return_last else x
