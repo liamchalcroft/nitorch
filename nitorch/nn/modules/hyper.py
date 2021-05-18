@@ -176,6 +176,7 @@ class HyperConv(tnn.Module):
         self.output_padding = output_padding
 
     def forward(self, x, meta):
+        print('Len', len(x))
         print('In', x.shape)
         # Batch seems to get squeezed in hyperstack
 
@@ -535,6 +536,8 @@ class HyperStack(tnn.Module):
         if not isinstance(return_last, str):
             return_last = 'single' if return_last else ''
 
+        # if len(x) > 1:
+        #     x = x[0]
         last = []
         if return_last:
             last = [x]
