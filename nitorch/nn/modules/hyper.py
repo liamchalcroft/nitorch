@@ -209,6 +209,8 @@ class HyperConv(tnn.Module):
         if padding == 'auto':
             padding = ((self.kernel_size-1)*self.dilation)//2
 
+        print('Weight shape: {}'.format(weight.shape))
+
         if self.dim == 2:
             x = F.conv2d(x, weight, bias, 
             stride=self.stride, padding=padding, groups=len(meta_batch))
