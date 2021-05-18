@@ -188,9 +188,9 @@ class HyperConv(tnn.Module):
         if self.bias:
             bias = torch.stack(bias)
             bias = bias.to(device)
+            print('Bias shape: {}'.format(bias.shape))
 
         weight = torch.cat(weight, dim=1)
-
         weight = weight.to(device)
 
         if self.batch_norm:
