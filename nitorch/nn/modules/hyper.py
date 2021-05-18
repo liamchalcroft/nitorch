@@ -76,7 +76,6 @@ class HyperGroupNorm(tnn.Module):
         self.head_b = tnn.Linear(16*(2**meta_depth), in_channels)
 
     def forward(self, x, meta):
-        print(meta)
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         meta_batch = torch.split(torch.squeeze(meta), self.meta_dim)
         weight = []
@@ -177,11 +176,13 @@ class HyperConv(tnn.Module):
         self.output_padding = output_padding
 
     def forward(self, x, meta):
-        print(meta)
         # Batch seems to get squeezed in hyperstack
 
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        meta_batch = torch.split(torch.squeeze(meta), self.meta_dim)
+        if len(meta.shape) > 1:
+            meta_batch = torch.split(torch.squeeze(meta), self.meta_dim)
+        else:
+            meta_batch = torch.split(meta, self.meta_dim)
         weight = []
         bias = []
 
