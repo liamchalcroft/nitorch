@@ -90,8 +90,8 @@ class HyperGroupNorm(tnn.Module):
             weight.append(weight_)
             bias.append(bias_)
 
-        weight = torch.squeeze(torch.stack(weight))
-        bias = torch.squeeze(torch.stack(bias))
+        weight = torch.cat(weight)
+        bias = torch.cat(bias)
 
         x = F.group_norm(x, len(meta), weight=weight, bias=bias)
         return x
@@ -191,7 +191,7 @@ class HyperConv(tnn.Module):
         if self.bias:
             bias /= len(meta_)
 
-        weight = torch.stack(weight, dim=1)
+        weight = torch.cat(weight, dim=1)
 
         weight = weight.to(device)
         bias = bias.to(device)
