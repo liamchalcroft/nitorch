@@ -175,6 +175,7 @@ class HyperConv(tnn.Module):
         for meta_ in meta_batch:
             meta_ = meta_.to(device)
             for block in self.blocks:
+                block = block.to(device)
                 meta_ = block(meta_)
                 meta_ = self.meta_act(meta_)
 
