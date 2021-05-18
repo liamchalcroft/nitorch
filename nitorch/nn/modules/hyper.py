@@ -171,7 +171,7 @@ class HyperConv(tnn.Module):
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         meta_batch = torch.split(torch.squeeze(meta), self.meta_dim)
         weight = []
-        bias = None
+        bias = []
         for meta_ in meta_batch:
             for block in self.blocks:
                 meta_ = block(meta_)
@@ -183,13 +183,10 @@ class HyperConv(tnn.Module):
 
             if self.bias:
                 bias_ = self.head_b(meta_)
-                if bias == None:
-                    bias = bias_
-                else:
-                    bias += bias_
+                bias.append(bias_)
 
         if self.bias:
-            bias /= len(meta_)
+            torch.stack(bias)
 
         weight = torch.cat(weight, dim=1)
 
@@ -211,6 +208,8 @@ class HyperConv(tnn.Module):
         # can look at also using e.g. channelshuffle, stitch to switch between fully separate and interconnected
         if self.dim == 2:
             if self.grouppool==True:
+                if self.bias:
+                    bias = torch.mean(bias, dim=0)
                 x = F.conv2d(x, weight, bias, 
                 stride=self.stride, padding=padding)
             else:
@@ -218,6 +217,7 @@ class HyperConv(tnn.Module):
                 weight_grp = torch.split(weight, grp, dim=1)
                 x_grp = torch.split(x, grp, dim=1)
                 if self.bias:
+                    bias = bias.flatten()
                     bias_grp = torch.split(bias, grp, dim=1)
                 else:
                     bias_grp = [None] * len(x_grp)
@@ -226,6 +226,8 @@ class HyperConv(tnn.Module):
                 x = torch.cat(x_grp, dim=1)
         elif self.dim == 3:
             if self.grouppool==True:
+                if self.bias:
+                    bias = torch.mean(bias, dim=0)
                 x = F.conv3d(x, weight, bias, 
                 stride=self.stride, padding=padding)
             else:    
@@ -233,6 +235,7 @@ class HyperConv(tnn.Module):
                 weight_grp = torch.split(weight, grp, dim=1)
                 x_grp = torch.split(x, grp, dim=1)
                 if self.bias:
+                    bias = bias.flatten()
                     bias_grp = torch.split(bias, grp, dim=1)
                 else:
                     bias_grp = [None] * len(x_grp)
