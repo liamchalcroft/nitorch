@@ -104,6 +104,7 @@ class HyperGroupNorm(tnn.Module):
             x = F.group_norm(x, len(meta), weight=weight, bias=bias)
         except:
             print('Metadata: {}\nImage shape: {}'.format(meta, x.shape))
+            pass
         return x
 
 
