@@ -209,37 +209,37 @@ class HyperConv(tnn.Module):
         if self.dim == 2:
             if self.grouppool==True:
                 if self.bias:
-                    bias = torch.mean(bias, dim=0).to(device)
+                    bias = torch.mean(bias, dim=0)
                 x = F.conv2d(x, weight, bias, 
-                stride=self.stride, padding=padding).to(device)
+                stride=self.stride, padding=padding)
             else:
                 grp = len(meta_batch)
-                weight_grp = torch.chunk(weight, grp, dim=1).to(device)
-                x_grp = torch.chunk(x, grp, dim=1).to(device)
+                weight_grp = torch.chunk(weight, grp, dim=1)
+                x_grp = torch.chunk(x, grp, dim=1)
                 if self.bias:
                     bias = bias.flatten()
-                    bias_grp = torch.chunk(bias, grp).to(device)
+                    bias_grp = torch.chunk(bias, grp)
                 else:
-                    bias_grp = torch.tensor([None] * len(x_grp)).to(device)
-                x_grp = [F.conv2d(x_grp[i], weight_grp[i], bias_grp[i], 
+                    bias_grp = torch.tensor([None] * len(x_grp))
+                x_grp = [F.conv2d(x_grp[i].to(device), weight_grp[i].to(device), bias_grp[i].to(device), 
                 stride=self.stride, padding=padding) for i in range(len(x_grp))]
                 x = torch.cat(x_grp, dim=1).to(device)
         elif self.dim == 3:
             if self.grouppool==True:
                 if self.bias:
-                    bias = torch.mean(bias, dim=0).to(device)
+                    bias = torch.mean(bias, dim=0)
                 x = F.conv3d(x, weight, bias, 
                 stride=self.stride, padding=padding).to(device)
             else:    
                 grp = len(meta_batch)
-                weight_grp = torch.chunk(weight, grp, dim=1).to(device)
-                x_grp = torch.chunk(x, grp, dim=1).to(device)
+                weight_grp = torch.chunk(weight, grp, dim=1)
+                x_grp = torch.chunk(x, grp, dim=1)
                 if self.bias:
                     bias = bias.flatten()
-                    bias_grp = torch.chunk(bias, grp).to(device)
+                    bias_grp = torch.chunk(bias, grp)
                 else:
-                    bias_grp = torch.tensor([None] * len(x_grp)).to(device)
-                x_grp = [F.conv3d(x_grp[i], weight_grp[i], bias_grp[i], 
+                    bias_grp = torch.tensor([None] * len(x_grp))
+                x_grp = [F.conv3d(x_grp[i].to(device), weight_grp[i].to(device), bias_grp[i].to(device), 
                 stride=self.stride, padding=padding) for i in range(len(x_grp))]
                 x = torch.cat(x_grp, dim=1).to(device)
 
