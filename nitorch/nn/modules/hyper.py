@@ -165,6 +165,8 @@ class HyperConv(tnn.Module):
         if bias:
             self.head_b = tnn.Linear(16*(2**meta_depth), out_channels)
 
+        print('conv shape: {}'.format(self.shape))
+
         self.padding = padding
         self.padding_mode = padding_mode
         self.output_padding = output_padding
@@ -182,6 +184,7 @@ class HyperConv(tnn.Module):
                 meta_ = self.meta_act(meta_)
 
             weight_flat = self.head_w(meta_)
+            print('Flat weight shape: {}'.format(weight_flat.shape))
             weight_ = weight_flat.reshape(self.shape)
             if weight is None:
                 weight = weight_
