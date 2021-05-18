@@ -2474,6 +2474,7 @@ class GroupNet(tnn.Sequential):
                 if i < self.fusion_depth:
                     # group-pooling
                     pool = self.group[i+1]
+                    print(pool)
                     if self.hyper:
                         buffer = pool(buffer, meta)
                     else:
@@ -2482,10 +2483,7 @@ class GroupNet(tnn.Sequential):
 
         pad = self.get_padding(buffers[-1].shape, x.shape, self.bottleneck)
 
-        if self.hyper:
-            x = self.bottleneck(x, meta, output_padding=pad)
-        else:
-            x = self.bottleneck(x, output_padding=pad)
+        x = self.bottleneck(x, output_padding=pad)
 
         # decoder
         for layer in self.decoder:
