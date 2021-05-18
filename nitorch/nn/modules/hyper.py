@@ -179,11 +179,14 @@ class HyperConv(tnn.Module):
                 meta_ = block(meta_)
                 meta_ = self.meta_act(meta_)
 
+            self.head_w = self.head_w.to(device)
+
             weight_flat = self.head_w(meta_)
             weight_ = weight_flat.reshape(self.shape)
             weight.append(weight_)
 
             if self.bias:
+                self.head_b = self.head_b.to(device)
                 bias_ = self.head_b(meta_)
                 bias.append(bias_)
 
