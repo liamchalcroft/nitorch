@@ -188,7 +188,6 @@ class HyperConv(tnn.Module):
         if self.bias:
             bias = torch.stack(bias)
             bias = bias.to(device)
-            print('Bias shape: {}'.format(bias.shape))
 
         weight = torch.cat(weight, dim=1)
         weight = weight.to(device)
@@ -214,12 +213,11 @@ class HyperConv(tnn.Module):
                 stride=self.stride, padding=padding)
             else:
                 grp = len(meta_batch)
-                weight_grp = torch.split(weight, grp, dim=1)
-                x_grp = torch.split(x, grp, dim=1)
+                weight_grp = torch.chunk(weight, grp, dim=1)
+                x_grp = torch.chunk(x, grp, dim=1)
                 if self.bias:
                     bias = bias.flatten()
-                    print('Flat bias shape: {}'.format(bias.shape))
-                    bias_grp = torch.split(bias, grp)
+                    bias_grp = torch.chunk(bias, grp)
                 else:
                     bias_grp = [None] * len(x_grp)
                 x_grp = [F.conv2d(x_grp[i], weight_grp[i], bias_grp[i], 
@@ -233,11 +231,11 @@ class HyperConv(tnn.Module):
                 stride=self.stride, padding=padding)
             else:    
                 grp = len(meta_batch)
-                weight_grp = torch.split(weight, grp, dim=1)
-                x_grp = torch.split(x, grp, dim=1)
+                weight_grp = torch.chunk(weight, grp, dim=1)
+                x_grp = torch.chunk(x, grp, dim=1)
                 if self.bias:
                     bias = bias.flatten()
-                    bias_grp = torch.split(bias, grp)
+                    bias_grp = torch.chunk(bias, grp)
                 else:
                     bias_grp = [None] * len(x_grp)
                 x_grp = [F.conv3d(x_grp[i], weight_grp[i], bias_grp[i], 
