@@ -119,7 +119,8 @@ class HyperConv(tnn.Module):
         padding='auto',
         padding_mode='zeros',
         output_padding=0,
-        dilation=1):
+        dilation=1,
+        grouppool=False):
 
         """ TODO: Add documentation
         """
@@ -135,6 +136,7 @@ class HyperConv(tnn.Module):
         self.activation = activation
         self.kernel_size = kernel_size
         self.dilation = dilation
+        self.grouppool = grouppool
 
         if batch_norm == True:
             self.batch_norm = HyperGroupNorm(in_channels, meta_dim, meta_depth, meta_act)
@@ -165,8 +167,6 @@ class HyperConv(tnn.Module):
         if bias:
             self.head_b = tnn.Linear(16*(2**meta_depth), out_channels)
 
-        print('conv shape: {}'.format(self.shape))
-
         self.padding = padding
         self.padding_mode = padding_mode
         self.output_padding = output_padding
@@ -184,7 +184,6 @@ class HyperConv(tnn.Module):
                 meta_ = self.meta_act(meta_)
 
             weight_flat = self.head_w(meta_)
-            print('Flat weight shape: {}'.format(weight_flat.shape))
             weight_ = weight_flat.reshape(self.shape)
             if weight is None:
                 weight = weight_
@@ -215,11 +214,19 @@ class HyperConv(tnn.Module):
         print('Weight shape: {}'.format(weight.shape))
 
         if self.dim == 2:
-            x = F.conv2d(x, weight, bias, 
-            stride=self.stride, padding=padding, groups=len(meta_batch))
+            if self.grouppool:
+                x = F.conv2d(x, weight, bias, 
+                stride=self.stride, padding=padding, groups=1)
+            else:
+                x = F.conv2d(x, weight, bias, 
+                stride=self.stride, padding=padding, groups=len(meta_batch))
         elif self.dim == 3:
-            x = F.conv3d(x, weight, bias, 
-            stride=self.stride, padding=padding, groups=len(meta_batch))
+            if self.grouppool:
+                x = F.conv3d(x, weight, bias, 
+                stride=self.stride, padding=padding, groups=1)
+            else:    
+                x = F.conv3d(x, weight, bias, 
+                stride=self.stride, padding=padding, groups=len(meta_batch))
 
         # perform post-padding
         if self.output_padding:
