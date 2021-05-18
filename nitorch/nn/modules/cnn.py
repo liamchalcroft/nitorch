@@ -2528,6 +2528,7 @@ class GroupNet(tnn.Sequential):
 
         # decoder
         for layer in self.decoder:
+            print('Decoder layer')
             buffer = buffers.pop()
             pad = self.get_padding(buffers[-1].shape, x.shape, layer)
             x = layer(x, buffer, output_padding=pad)
