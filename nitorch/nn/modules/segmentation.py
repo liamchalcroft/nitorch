@@ -975,6 +975,9 @@ def board(tb, inputs=None, outputs=None, epoch=None, minibatch=None,
         return slice_target
 
     def to_grid(slice_input, slice_target, slice_prediction):
+        print('slice input shape:', slice_input.shape)
+        print('slice target shape:', slice_target.shape)
+        print('slice prediction shape:', slice_prediction.shape)
         return torch.cat((slice_input, slice_target, slice_prediction), dim=1)
 
     def get_slices(plane, inputs, outputs, dim, implicit):
