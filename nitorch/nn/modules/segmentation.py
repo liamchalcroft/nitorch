@@ -975,9 +975,6 @@ def board(tb, inputs=None, outputs=None, epoch=None, minibatch=None,
         return slice_target
 
     def to_grid(slice_input, slice_target, slice_prediction):
-        print('slice input shape:', slice_input.shape)
-        print('slice target shape:', slice_target.shape)
-        print('slice prediction shape:', slice_prediction.shape)
         return torch.cat((slice_input, slice_target, slice_prediction), dim=1)
 
     def get_slices(plane, inputs, outputs, dim, implicit):
@@ -1001,11 +998,14 @@ def board(tb, inputs=None, outputs=None, epoch=None, minibatch=None,
     if inputs is None or outputs is None:
         return
     # Add to TensorBoard
-    title = 'Image-Target-Prediction_'
-    tb.add_image(title + 'z', get_image('z', inputs, outputs, dim, implicit))
-    if dim == 3:
-        tb.add_image(title + 'y', get_image('y', inputs, outputs, dim, implicit))
-        tb.add_image(title + 'x', get_image('x', inputs, outputs, dim, implicit))
+    try:
+        title = 'Image-Target-Prediction_'
+        tb.add_image(title + 'z', get_image('z', inputs, outputs, dim, implicit))
+        if dim == 3:
+            tb.add_image(title + 'y', get_image('y', inputs, outputs, dim, implicit))
+            tb.add_image(title + 'x', get_image('x', inputs, outputs, dim, implicit))
+    except:
+        return
     tb.flush()
 
 
