@@ -1174,8 +1174,6 @@ class GroupSegNet(Module):
     fusion each modality will be treated individually using grouped convolutions
     and GroupNorm. 1x1 convolution used to pool channels before skip connections.
     
-    Plans to extend using hypernetworks and adversarial domain adaptation.
-
     """
     def __init__(self,
                 dim,
@@ -1190,7 +1188,7 @@ class GroupSegNet(Module):
                 activation=tnn.LeakyReLU(0.2),
                 conv_per_layer=1,
                 residual=False,
-                batch_norm=True, # TODO: Implement InstanceNorm
+                batch_norm=True,
                 implicit=True,
                 augmentation=None,
                 skip_final_activation=False):
@@ -1198,38 +1196,69 @@ class GroupSegNet(Module):
 
         Parameters
         ----------
+
         dim : int
             Space dimension
+
         fusion_depth: int, default=None
             Network depth to fuse modalities into single group.
+
         output_classes : int, default=1
             Number of classes, excluding background
+
         input_channels : int, default=1
             Number of input channels
+
+        hyper : bool, default=False
+            Hypernetwork for group-wise channels. 
+            If True, please ensure correct in_channels value.
+
+        meta_dim : int
+            Dimensionality of metadata input to hypernet(s).
+
         encoder : sequence[int], optional
             Number of features per encoding layer
+
         decoder : sequence[int], optional
             Number of features per decoding layer
+
         kernel_size : int or sequence[int], default=3
             Kernel size
+
         activation : str or callable, default=LeakyReLU(0.2)
             Activation function in the UNet.
+
+        conv_per_layer : int, default=1
+            Number of convolution layers to use per stack.
+
+        residual : bool, default=False
+            Add residual connections between convolutions.
+            This has no effect if only one convolution is performed.
+            No residual connection is applied to the output of the last
+            layer (strided conv or pool).
+
         batch_norm : bool or callable, default=True
             Batch normalization layer.
             Can be a class (typically a Module), which is then instantiated,
             or a callable (an already instantiated class or a more simple
             function).
+
         implicit : bool, default=True
             Only return `output_classes` probabilities (the last one
             is implicit as probabilities must sum to 1).
             Else, return `output_classes + 1` probabilities.
+
         bg_class : int, default=0
             Index of background class in reference segmentation.
+
         augmentation : str or sequence[str], default=None
             Apply various augmentation techniques, available methods are:
             * 'warp' : Nonlinear warp of input image and target label
             * 'noise' : Additive gaussian noise to image
             * 'inu' : Multiplicative intensity non-uniformity (INU) to image
+
+        skip_final_activation : bool, default=False
+            Option to skip final activation of network. Useful for e.g. combining with MRF/CRF.
 
         """
         super().__init__()

@@ -2190,13 +2190,15 @@ class GroupNet(tnn.Sequential):
             Number of output channels.
 
         hyper : bool, default=False
-            Hypernetwork for group-wise channels. If true, each image requires metadata to be provided in forward pass
-            with correct formatting (TODO: Make function to do this automatically from nifti headers). Should be able
-            to take image sets with arbitrary inputs (TODO: Figure out how to make in_channels variable).
+            Hypernetwork for group-wise channels. 
+            If True, please ensure correct in_channels value.
+
+        meta_dim : int
+            Dimensionality of metadata input to hypernet(s).
 
         fusion_depth : int, default=0
             Network depth to fuse modalities into single group.
-            Set to None for regular U-Net.
+            Set to None for regular U-Net (or fully hypernet-parametrised).
             
         encoder : sequence[int], default=[16, 32, 32, 32]
             Number of channels in each encoding layer.
@@ -2209,6 +2211,9 @@ class GroupNet(tnn.Sequential):
             
         kernel_size : int or sequence[int], default=3
             Kernel size per dimension.
+
+        stride : int or sequence[int], default=1:
+            Stride of the convolution.
             
         activation : [sequence of] str or type or callable or None, default='relu'
             Activation function. An activation can be a class
@@ -2222,6 +2227,15 @@ class GroupNet(tnn.Sequential):
             
         batch_norm : bool or type or callable, default=False
             Batch normalization before each convolution.
+
+        residual : bool, default=False
+            Add residual connections between convolutions.
+            This has no effect if only one convolution is performed.
+            No residual connection is applied to the output of the last
+            layer (strided conv or pool).
+
+        conv_per_layer : int, default=1
+            Number of convolution layers to use per stack.
         """
         self.dim = dim
         self.fusion_depth = fusion_depth
