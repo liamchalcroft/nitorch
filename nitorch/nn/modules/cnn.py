@@ -2212,7 +2212,7 @@ class GroupNet(tnn.Sequential):
         kernel_size : int or sequence[int], default=3
             Kernel size per dimension.
 
-        stride : int or sequence[int], default=1:
+        stride : int or sequence[int], default=2:
             Stride of the convolution.
             
         activation : [sequence of] str or type or callable or None, default='relu'
@@ -2411,16 +2411,30 @@ class GroupNet(tnn.Sequential):
         cin = encoder[-1]
         cout = decoder[0]
         cout = [encoder[-1]] * (conv_per_layer - 1) + [cout]
-        modules['bottleneck'] = DecodingLayer(
-            dim,
-            in_channels=cin,
-            out_channels=cout,
-            kernel_size=kernel_size,
-            stride=stride,
-            activation=activation,
-            batch_norm=batch_norm,
-            residual=residual
-        )
+        if hyper and not fusion_depth:
+            modules['bottleneck'] = HyperStack(
+                dim,
+                in_channels=cin,
+                out_channels=cout,
+                meta_dim=meta_dim,
+                kernel_size=kernel_size,
+                stride=stride,
+                activation=activation,
+                batch_norm=batch_norm,
+                residual=residual,
+                transposed=True
+            )
+        else:
+            modules['bottleneck'] = DecodingLayer(
+                dim,
+                in_channels=cin,
+                out_channels=cout,
+                kernel_size=kernel_size,
+                stride=stride,
+                activation=activation,
+                batch_norm=batch_norm,
+                residual=residual
+            )
 
         # --- decoder ------------------------------------------
         modules_decoder = []
@@ -2435,16 +2449,29 @@ class GroupNet(tnn.Sequential):
                 cin = decoder[n] + encoder[-n - 1]
             cout = decoder[n + 1]
             cout = [decoder[n]] * (conv_per_layer - 1) + [cout]
-            modules_decoder.append(DecodingLayer(
-                dim,
-                in_channels=cin,
-                out_channels=cout,
-                kernel_size=kernel_size,
-                stride=stride,
-                activation=activation,
-                batch_norm=batch_norm,
-                residual=residual
-            ))
+            if hyper and not fusion_depth:
+                modules_decoder.append(HyperStack(
+                    dim,
+                    in_channels=cin,
+                    out_channels=cout,
+                    meta_dim=meta_dim,
+                    kernel_size=kernel_size,
+                    stride=stride,
+                    activation=activation,
+                    batch_norm=batch_norm,
+                    residual=residual,
+                    transposed=True)
+            else:
+                modules_decoder.append(DecodingLayer(
+                    dim,
+                    in_channels=cin,
+                    out_channels=cout,
+                    kernel_size=kernel_size,
+                    stride=stride,
+                    activation=activation,
+                    batch_norm=batch_norm,
+                    residual=residual
+                ))
         modules['decoder'] = tnn.ModuleList(modules_decoder)
 
         # --- head -----------------------------------------------
@@ -2456,26 +2483,50 @@ class GroupNet(tnn.Sequential):
         for s in stack:
             cout += [s] * conv_per_layer
         if cout:
-            stk = StackedConv(
-                dim,
-                in_channels=cin,
-                out_channels=cout,
-                kernel_size=kernel_size,
-                activation=activation,
-                batch_norm=batch_norm,
-                residual=residual
-            )
+            if hyper and not fusion_depth:
+                modules_decoder.append(HyperStack(
+                    dim,
+                    in_channels=cin,
+                    out_channels=cout,
+                    meta_dim=meta_dim,
+                    kernel_size=kernel_size,
+                    activation=activation,
+                    batch_norm=batch_norm,
+                    residual=residual
+                )
+            else:
+                stk = StackedConv(
+                    dim,
+                    in_channels=cin,
+                    out_channels=cout,
+                    kernel_size=kernel_size,
+                    activation=activation,
+                    batch_norm=batch_norm,
+                    residual=residual
+                )
             modules['stack'] = stk
             last_stack = cout[-1]
         else:
             modules['stack'] = Cat()
             last_stack = cin
 
-        final = Conv(dim, last_stack, out_channels,
-                     kernel_size=kernel_size,
-                     batch_norm=batch_norm,
-                     activation=final_activation,
-                     padding='auto')
+        if hyper and not fusion_depth:
+            final = HyperConv(
+                        dim,
+                        in_channels=last_stack,
+                        out_channels=cout,
+                        meta_dim=meta_dim,
+                        kernel_size=kernel_size,
+                        activation=final_activation,
+                        batch_norm=batch_norm,
+                        padding='auto'
+                    )
+        else:
+            final = Conv(dim, last_stack, out_channels,
+                        kernel_size=kernel_size,
+                        batch_norm=batch_norm,
+                        activation=final_activation,
+                        padding='auto')
         modules['final'] = final
 
         super().__init__(modules)
