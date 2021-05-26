@@ -954,6 +954,230 @@ class Decoder(tnn.ModuleList):
 
 
 @nitorchmodule
+class Generator(tnn.ModuleList):
+    """Generator network for e.g. GANs.
+    TODO: Add option for sub-pixel convolution."""
+
+    def __init__(
+        self,
+        out_shape,
+        dim=None,
+        latent_dim=100,
+        out_channels=1,
+        conv=False,
+        stride=2,
+        channels=None,
+        batch_norm=True,
+        activation=tnn.LeakyReLU(),
+        final_activation=tnn.Softmax(1)
+    ):
+        """
+        Parameters
+        ----------
+        out_shape : int or sequence[int]
+            Shape of generated image/volume.
+
+        dim : {1, 2, 3, None}, default=None
+            Dimension of generated image. If None, will infer from out_shape.
+            
+        latent_dim : int, default=100
+            Length of latent noise vector for GAN.
+            
+        out_channels : int
+            Number of channels in generated image/volume.
+            
+        conv : bool, default=False
+            If True, will use convolution blocks as in DCGAN.
+            If False, will use linear layers.
+
+        stride : int, default=2
+            Stride for convolution blocks, i.e. upscaling factor.
+            Please ensure target output shape is compatible.
+
+        channels : sequence[int], default=None
+            Channels to use in network. If none will default to either:
+                * (128, 256, 512, 1024) for Linear
+                * (256, 128, 64, 32) for Conv
+
+        batch_norm : bool, default=False
+            Batch normalization before each convolution.
+            
+        activation : callable, default=tnn.LeakyReLU()
+            Activation function.
+            
+        final_activation : callable, default=tnn.Softmax(dim=1)
+            Final activation function.
+
+        """
+
+        super().__init__()
+
+        if dim:
+            self.dim = dim
+            if isinstance(out_shape, int):
+                out_shape = [out_shape] * dim
+        elif isinstance(out_shape, (list, tuple)):
+            self.dim = len(out_shape)
+        else:
+            raise TypeError("Please either specify 'dim' or give 'out_shape' as list/tuple.")
+
+        self.out_shape = out_shape
+        self.out_channels = out_channels
+        self.conv = conv
+
+        layers = []
+        if not conv:
+            if not channels:
+                channels = (128, 256, 512, 1024)
+            for i in len(-1, channels):
+                if i == -1:
+                    cin = latent_dim
+                    cout = channels[0]
+                else:
+                    cin = channels[i]
+                    cout = channels[i+1]
+                block = [tnn.Linear(cin, cout)]
+                if batch_norm:
+                    block.append(tnn.BatchNorm1d(cout))
+                block.append(activation)
+                layers.append(*block)
+            layers.append(tnn.Linear(channels[-1], int(out_channels * np.prod(out_shape))))
+            if final_activation:
+                layers.append(final_activation)
+            self.layers = tnn.ModuleList(layers)
+
+        else:
+            if not channels:
+                channels = (256, 128, 64, 32)
+            self.first_ch = channels[0]
+            in_shape = [s//(stride**len(channels)) for s in out_shape]
+            self.in_shape = in_shape
+            self.lin2conv = tnn.Linear(latent_dim, channels[0] * int(np.prod(in_shape)))
+            layers = [Decoder(
+                dim,
+                channels[0],
+                channels,
+                stride=stride,
+                batch_norm=batch_norm
+            )]
+            if final_activation:
+                layers.append(final_activation)
+            self.layers = tnn.ModuleList(layers)
+
+    def forward(self, z):
+        if self.conv:
+            z = self.lin2conv(z)
+            z = z.view(z.shape[0], self.first_ch, *self.in_shape)
+        img = self.layers(z)
+        if not self.conv:
+            img = img.view(img.shape[0], self.out_channels, *self.out_shape)
+        return img
+
+
+@nitorchmodule
+class Discriminator(tnn.ModuleList):
+    """Discriminator network for e.g. GANs, Adversarial Domain Adaptation."""
+    def __init__(
+        self,
+        in_shape=None,
+        in_channels=1,
+        dim=3,
+        out_dim=2,
+        conv=True,
+        stride=2,
+        channels=None,
+        batch_norm=True,
+        activation=tnn.LeakyReLU(),
+        final_activation=tnn.Softmax(1)
+    ):
+        """
+        Parameters
+        ----------
+        in_shape : int or sequence[int], default=None
+            Shape of generated image/volume.
+            Not needed if conv=True.
+
+        in_channels : int, default=1
+            Number of channels in input image/volume.
+
+        dim : {1, 2, 3, None}, default=None
+            Dimension of generated image. If None, will infer from out_shape.
+            
+        out_dim : int, default=2
+            Length of prediction vector (e.g. real/fake).
+            
+        conv : bool, default=True
+            If True, will use convolution blocks as in DCGAN.
+            If False, will use linear layers.
+
+        channels : sequence[int], default=None
+            Channels to use in network. If none will default to either:
+                * (512, 256, 128) for Linear
+                * (16, 32, 32, 32, 32, 16, 16) for Conv
+
+        batch_norm : bool, default=False
+            Batch normalization before each convolution.
+            
+        activation : callable, default=tnn.LeakyReLU()
+            Activation function.
+            
+        final_activation : callable, default=tnn.Softmax(1)
+            Final activation function.
+
+        """
+
+        super().__init__()
+
+        self.conv = conv
+        self.dim = dim
+
+        if conv == False:
+            if dim:
+                self.dim = dim
+                if isinstance(in_shape, int):
+                    in_shape = [in_shape] * dim
+            elif isinstance(in_shape, (list, tuple)):
+                self.dim = len(in_shape)
+            else:
+                raise TypeError("When using conv=False, please either specify 'dim' or give 'in_shape' as list/tuple.")
+            self.in_shape = in_shape
+
+            if not channels:
+                channels = (512, 256, 128)
+            for i in len(-1, channels):
+                if i == -1:
+                    cin = int(np.prod(in_shape))
+                    cout = channels[0]
+                else:
+                    cin = channels[i]
+                    cout = channels[i+1]
+                block = [tnn.Linear(cin, cout)]
+                if batch_norm:
+                    block.append(tnn.BatchNorm1d(cout))
+                block.append(activation)
+                layers.append(*block)
+            layers.append(tnn.Linear(channels[-1], out_dim))
+            if final_activation:
+                layers.append(final_activation)
+            self.layers = tnn.ModuleList(layers)
+
+        else:
+            self.layers = CNN(
+                dim,
+                in_channels,
+                out_dim,
+                activation=[activation, final_activation]
+                batch_norm=batch_norm
+            )
+        
+    def forward(self, x):
+        if self.conv == False:
+            x = x.view(x.shape[0], -1)
+        x = self.layers(x)
+        return x
+
+
+@nitorchmodule
 class UNet(tnn.Sequential):
     """Fully-convolutional U-net."""
 
