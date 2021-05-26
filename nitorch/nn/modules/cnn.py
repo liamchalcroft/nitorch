@@ -2708,7 +2708,7 @@ class GroupNet(tnn.Sequential):
             cout += [s] * conv_per_layer
         if cout:
             if hyper and not fusion_depth:
-                modules_decoder.append(HyperStack(
+                stk = HyperStack(
                     dim,
                     in_channels=cin,
                     out_channels=cout,
@@ -2831,3 +2831,351 @@ class GroupNet(tnn.Sequential):
         shape = layer.shape(inshape)[2:]
         padding = [o - i for o, i in zip(outshape, shape)]
         return padding
+
+
+@nitorchmodule
+class HyperCycleSegNet(tnn.Sequential):
+    """ GroupNet model as above but with added functionality for GAN-style image translation.
+    TODO: Add proper documentation
+    """
+
+    def __init__(
+            self,
+            dim,
+            in_channels,
+            out_channels,
+            hyper=False,
+            meta_dim=None,
+            fusion_depth=0,
+            encoder=None,
+            decoder=None,
+            kernel_size=3,
+            stride=2,
+            activation=tnn.LeakyReLU(),
+            gan_activation=tnn.Tanh(),
+            batch_norm=True,
+            residual=False,
+            conv_per_layer=1):
+        """
+
+        Parameters
+        ----------
+        dim : {1, 2, 3}
+            Dimension.
+            
+        in_channels : int
+            Number of input channels.
+            
+        out_channels : int
+            Number of output channels.
+
+        hyper : bool, default=False
+            Hypernetwork for group-wise channels. 
+            If True, please ensure correct in_channels value.
+
+        meta_dim : int
+            Dimensionality of metadata input to hypernet(s).
+
+        fusion_depth : int, default=0
+            Network depth to fuse modalities into single group.
+            Set to None for regular U-Net (or fully hypernet-parametrised).
+            
+        encoder : sequence[int], default=[16, 32, 32, 32]
+            Number of channels in each encoding layer.
+            
+        decoder : sequence[int], default=[32, 32, 32, 16]
+            Number of channels in each decoding layer.
+            If the number of decoding layer is larger than the number of
+            encoding layers, stacked convolutions are appended to the
+            UNet.
+            
+        kernel_size : int or sequence[int], default=3
+            Kernel size per dimension.
+
+        stride : int or sequence[int], default=2:
+            Stride of the convolution.
+            
+        activation : [sequence of] str or type or callable or None, default='relu'
+            Activation function. An activation can be a class
+            (typically a Module), which is then instantiated, or a
+            callable (an already instantiated class or a more simple
+            function). It is useful to accept both these cases as they
+            allow to either:
+                * have a learnable activation specific to this module
+                * have a learnable activation shared with other modules
+                * have a non-learnable activation
+            
+        batch_norm : bool or type or callable, default=False
+            Batch normalization before each convolution.
+
+        residual : bool, default=False
+            Add residual connections between convolutions.
+            This has no effect if only one convolution is performed.
+            No residual connection is applied to the output of the last
+            layer (strided conv or pool).
+
+        conv_per_layer : int, default=1
+            Number of convolution layers to use per stack.
+        """
+        self.dim = dim
+        self.fusion_depth = fusion_depth
+        self.hyper = hyper
+
+        # defaults
+        conv_per_layer = max(1, conv_per_layer)
+        default_encoder = [16, 32, 32, 32]
+        encoder = list(encoder or default_encoder)
+        default_decoder = list(reversed(encoder[:-1]))
+        decoder = make_list(decoder or default_decoder, 
+                             n=len(encoder) - 1, crop=False)
+
+        stack = decoder[len(encoder):]
+        decoder = decoder[:len(encoder)]
+        activation, final_activation = make_list(activation, 2)
+        kernel_size, final_kernel_size = make_list(kernel_size, 2)
+
+        if fusion_depth:
+            for i in range(fusion_depth):
+                encoder[i] *= in_channels
+
+        modules = OrderedDict()
+
+        # --- initial feature extraction --------------------------------
+        bn = batch_norm
+
+        modules['first'] = HyperConv(
+            dim,
+            in_channels=in_channels,
+            out_channels=encoder[0],
+            meta_dim=meta_dim,
+            kernel_size=kernel_size,
+            activation=activation,
+            stride=stride,
+            batch_norm=bn,
+            padding='auto')
+
+        # --- encoder -----------------------------------------------
+        modules_encoder = []
+        for n in range(len(encoder) - 1):
+            cin = encoder[n]
+            cout = encoder[n + 1]
+            cout = [cin] * (conv_per_layer - 1) + [cout]
+                if n < fusion_depth:
+                    bn = batch_norm
+                    modules_encoder.append(HyperStack(
+                        dim,
+                        in_channels=cin,
+                        out_channels=cout,
+                        meta_dim=meta_dim,
+                        kernel_size=kernel_size,
+                        stride=stride,
+                        activation=activation,
+                        batch_norm=bn,
+                        residual=residual
+                    ))
+            elif n == fusion_depth:
+                bn = batch_norm
+                    modules_encoder.append(HyperStack(
+                        dim,
+                        in_channels=cin,
+                        out_channels=cout,
+                        meta_dim=meta_dim,
+                        kernel_size=kernel_size,
+                        stride=stride,
+                        activation=activation,
+                        batch_norm=bn,
+                        residual=residual,
+                        grouppool=True
+                    ))
+                    
+        modules['encoder'] = tnn.ModuleList(modules_encoder)
+
+        #--- group pooling ------------------------------------------
+        if fusion_depth:
+            group_pool = []
+            if len(group_pool) == 0:
+                group_pool.append(HyperConv(dim=dim, in_channels=in_channels,
+                    out_channels=1, meta_dim=meta_dim, kernel_size=1, grouppool=True))
+            for i in range(fusion_depth+1):
+                cin = encoder[i]
+                cout = cin // in_channels
+                group_pool.append(HyperConv(dim=dim, in_channels=cin,
+                    out_channels=cout, meta_dim=meta_dim, kernel_size=1, grouppool=True))
+            modules['group'] = tnn.ModuleList(group_pool)
+
+        # --- bottleneck ------------------------------------------
+        cin = encoder[-1]
+        cout = decoder[0]
+        cout = [encoder[-1]] * (conv_per_layer - 1) + [cout]
+        modules['bottleneck'] = DecodingLayer(
+            dim,
+            in_channels=cin,
+            out_channels=cout,
+            kernel_size=kernel_size,
+            stride=stride,
+            activation=activation,
+            batch_norm=batch_norm,
+            residual=residual
+        )
+
+        # --- decoder ------------------------------------------
+        modules_decoder = []
+        *encoder, bottleneck = encoder
+        for n in range(len(decoder) - 1):
+            if (len(decoder)-(n+1)) <= fusion_depth:
+                cin = decoder[n] + (encoder[-n - 1] // in_channels)
+            else:
+                cin = decoder[n] + encoder[-n - 1]
+            cout = decoder[n + 1]
+            cout = [decoder[n]] * (conv_per_layer - 1) + [cout]
+            modules_decoder.append(DecodingLayer(
+                dim,
+                in_channels=cin,
+                out_channels=cout,
+                kernel_size=kernel_size,
+                stride=stride,
+                activation=activation,
+                batch_norm=batch_norm,
+                residual=residual
+            ))
+        modules['decoder'] = tnn.ModuleList(modules_decoder)
+
+        # --- segmentation head -----------------------------------------------
+        cin = decoder[-1] + 1
+        cout = [decoder[-1]] * (conv_per_layer - 1)
+        for s in stack:
+            cout += [s] * conv_per_layer
+        if cout:
+            stk = StackedConv(
+                dim,
+                in_channels=cin,
+                out_channels=cout,
+                kernel_size=kernel_size,
+                activation=activation,
+                batch_norm=batch_norm,
+                residual=residual
+            )
+            modules['stack'] = stk
+            last_stack = cout[-1]
+        else:
+            modules['stack'] = Cat()
+            last_stack = cin
+
+        final = Conv(dim, last_stack, out_channels,
+                    kernel_size=kernel_size,
+                    batch_norm=batch_norm,
+                    activation=final_activation,
+                    padding='auto')
+        modules['final'] = final
+
+        # --- translation head -----------------------------------------------
+        cin = decoder[-1] + 1
+        cout = [decoder[-1]] * (conv_per_layer - 1)
+        for s in stack:
+            cout += [s] * conv_per_layer
+        if cout:
+            stk_gan = HyperStack(
+                dim,
+                in_channels=cin,
+                out_channels=cout,
+                meta_dim=meta_dim,
+                kernel_size=kernel_size,
+                activation=activation,
+                batch_norm=batch_norm,
+                residual=residual
+            )
+            modules['stack_gan'] = stk_gan
+            last_stack = cout[-1]
+        else:
+            modules['stack_gan'] = Cat()
+            last_stack = cin
+
+        final_gan = HyperConv(
+                    dim,
+                    in_channels=last_stack,
+                    out_channels=cout,
+                    meta_dim=meta_dim,
+                    kernel_size=kernel_size,
+                    activation=gan_activation,
+                    batch_norm=batch_norm,
+                    padding='auto'
+                )
+        modules['final_gan'] = final_gan
+
+        super().__init__(modules)
+
+    def forward(self, x, meta=None, gan=False, gan_meta=None, return_feat=False):
+        """
+
+        Parameters
+        ----------
+        x : (batch, in_channels, *spatial) tensor
+            Input tensor
+        meta : (batch, in_channels, dim) tensor
+            Metadata tensor for encoder hypernet
+        gan : bool, default=False
+            Control output behaviour of network
+                * True: Generate image translation
+                * False: Generate image segmentation
+        gan_meta : (batch, in_channels, dim) tensor
+            Metadata tensor for output translation stack hypernet
+        return_feat : bool, default=False
+            Return the last features before the final convolution.
+
+        Returns
+        -------
+        x : (batch, out_channels, *spatial) tensor
+            Output tensor
+        f : (batch, decoder[-1], *spatial) tensor, if `return_feat`
+            Output features
+
+        """
+
+        if meta==None:
+            raise RuntimeError('No encoder meta-data provided.')
+        if gan==True and gan_meta==None:
+            raise RuntimeError('No GAN meta-data provided.')
+
+        buffers = []
+        buffers.append(self.group[0](x, meta))
+
+        x = self.first(x, meta)
+
+        # encoder
+        for i, layer in enumerate(self.encoder):
+            if self.fusion_depth>=i:
+                x, buffer = layer(x, meta, return_last=True)
+            # group-pooling
+            if i <= self.fusion_depth:
+                pool = self.group[i+1]
+                buffer = pool(buffer, meta)
+            buffers.append(buffer)
+
+        pad = self.get_padding(buffers[-1].shape, x.shape, self.bottleneck)
+
+        x = self.bottleneck(x, output_padding=pad)
+
+        # decoder
+        for layer in self.decoder:
+            buffer = buffers.pop()
+            pad = self.get_padding(buffers[-1].shape, x.shape, layer)
+            x = layer(x, buffer, output_padding=pad)
+
+        # stack/head
+        x_cat = torch.cat((x, buffers.pop()), dim=1)
+        if gan:
+            x = self.stack_gan(x_cat, meta=gan_meta)
+            f = x if return_feat else None
+            x = self.final_gan(x, meta=gan_meta)
+        else:
+            x = self.stack(x, buffers.pop())
+            f = x if return_feat else None
+            x = self.final(x)
+        return (x, f) if return_feat else x
+
+    def get_padding(self, outshape, inshape, layer):
+        outshape = outshape[2:]
+        shape = layer.shape(inshape)[2:]
+        padding = [o - i for o, i in zip(outshape, shape)]
+        return padding
+        
