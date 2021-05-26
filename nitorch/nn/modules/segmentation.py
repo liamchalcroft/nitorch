@@ -4,7 +4,7 @@ from nitorch import spatial
 from nitorch.core import utils, math
 from .. import check
 from .base import Module
-from .cnn import UNet, MRF, GroupNet
+from .cnn import UNet, MRF, GroupNet, HyperCycleSegNet, Discriminator
 from .spatial import GridPull, GridPushCount
 from ..generators import (BiasFieldTransform, DiffeoSample)
 import torch
@@ -1376,6 +1376,7 @@ class HyperSegGenNet(Module):
                 kernel_size=3,
                 activation=tnn.LeakyReLU(0.2),
                 gan_activation=tnn.Tanh(),
+                gan_channels=None,
                 conv_per_layer=1,
                 residual=False,
                 batch_norm=True,
@@ -1459,6 +1460,8 @@ class HyperSegGenNet(Module):
         augmentation = ['warp-img-lab' if a == 'warp' else a for a in augmentation]
         self.augmentation = augmentation
         final_activation = None
+        if not gan_channels:
+            gan_channels = input_channels
         if not skip_final_activation:
             if implicit and output_classes == 1:
                 final_activation = tnn.Sigmoid
@@ -1479,11 +1482,26 @@ class HyperSegGenNet(Module):
             decoder=decoder,
             kernel_size=kernel_size,
             activation=[activation, final_activation],
-            gan_activation=gan_activation
+            gan_activation=gan_activation,
+            gan_channels=gan_channels,
             batch_norm=batch_norm,
             conv_per_layer=conv_per_layer,
             residual=residual
             )
+
+        self.discriminator_gan = Discriminator(
+            in_channels=gan_channels+input_channels,
+            dim=dim,
+            out_dim=(meta_dim,1),
+            conv=True
+        )
+
+        self.discriminator_seg = Discriminator(
+            in_channels=2*output_classes,
+            dim=dim,
+            out_dim=1,
+            conv=True
+        )
 
         # register loss tag
         self.tags = ['segmentation']
@@ -1495,7 +1513,7 @@ class HyperSegGenNet(Module):
     kernel_size = property(lambda self: self.groupnet.kernel_size)
     activation = property(lambda self: self.groupnet.activation)
 
-    def forward(self, image, ref=None, meta=None, seg=True, gan=False, gan_meta=None, *, _loss=None, _metric=None):
+    def forward(self, image, ref=None, meta=None, seg=True, gan=False, gan_meta=None, ref_gan=None, *, _loss=None, _metric=None):
         """
 
         Parameters
@@ -1540,9 +1558,27 @@ class HyperSegGenNet(Module):
             if self.implicit and prob.shape[1] > self.output_classes:
                 prob = prob[:, :-1, ...]
         if gan:
-            trans = self.groupnet(image, meta, gan, gan_meta)
+            #TODO: Add discriminator predictions for positive and negative cases
+            trans_t = self.groupnet(image, meta, gan, gan_meta)
+            if ref_gan:
+                disc_t = self.discriminator_gan(torch.cat((ref_gan, trans_t), dim=1))
+
+                trans_t_s = self.groupnet(trans_t, gan_meta, gan, meta)
+                disc_t_s = self.discriminator_gan(torch.cat((image, trans_t_s), dim=1))
+
+                trans_t_t = self.groupnet(trans_t_t, gan_meta, gan, gan_meta)
+                disc_t_t = self.discriminator_gan(torch.cat((ref_gan, trans_t_t), dim=1))
+
+                trans_s = self.groupnet(image, meta, gan, meta)
+                disc_s = self.discriminator_gan(torch.cat((image, trans_s), dim=1))
+
             if seg:
-                trans_prob = self.groupnet(trans, gan_meta, gan=False)
+                prob_t = self.groupnet(trans_t, gan_meta, gan=False)
+
+                # if domain estimate to be used now then should be negative 
+                # (i.e. encourage segmentation to be domain-agnostic)
+                if ref:
+                    disc_seg_t = self.discriminator_seg(torch.cat((ref, prob_t)))
 
         # compute loss and metrics
         if ref is not None:
@@ -1552,3 +1588,5 @@ class HyperSegGenNet(Module):
             check.shape(prob, ref, dims=dims)
             self.compute(_loss, _metric, segmentation=[prob, ref])
         return prob
+
+    # TODO: add gradient penalty function as in WassersteinGAN objective

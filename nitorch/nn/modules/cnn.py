@@ -1082,13 +1082,13 @@ class Discriminator(tnn.ModuleList):
         in_shape=None,
         in_channels=1,
         dim=3,
-        out_dim=2,
+        out_dim=1,
         conv=True,
         stride=2,
         channels=None,
         batch_norm=True,
         activation=tnn.LeakyReLU(),
-        final_activation=tnn.Tanh()
+        final_activation=tnn.Sigmoid(1)
     ):
         """
         Parameters
@@ -1103,7 +1103,7 @@ class Discriminator(tnn.ModuleList):
         dim : {1, 2, 3, None}, default=None
             Dimension of generated image. If None, will infer from out_shape.
             
-        out_dim : int, default=2
+        out_dim : int or sequence(int), default=2
             Length of prediction vector (e.g. real/fake).
             
         conv : bool, default=True
@@ -1121,7 +1121,7 @@ class Discriminator(tnn.ModuleList):
         activation : callable, default=tnn.LeakyReLU()
             Activation function.
             
-        final_activation : callable, default=tnn.Tanh()
+        final_activation : callable, default=tnn.Sigmoid(1)
             Final activation function.
 
         """
@@ -1130,6 +1130,15 @@ class Discriminator(tnn.ModuleList):
 
         self.conv = conv
         self.dim = dim
+        self.final_activation = final_activation
+
+        if isinstance(out_dim, (tuple)):
+            out_dim = list(out_dim)
+        if isinstance(out_dim, (tuple)):
+            self.out_dim_list = out_dim
+            out_dim = sum(out_dim)
+        else:
+            self.out_dim_list = [out_dim]
 
         if conv == False:
             if dim:
@@ -1158,7 +1167,7 @@ class Discriminator(tnn.ModuleList):
                 layers.append(*block)
             layers.append(tnn.Linear(channels[-1], out_dim))
             if final_activation:
-                layers.append(final_activation)
+                self.head = [final_activation for head in self.out_dim_list]
             self.layers = tnn.ModuleList(layers)
 
         else:
@@ -1174,7 +1183,10 @@ class Discriminator(tnn.ModuleList):
         if self.conv == False:
             x = x.view(x.shape[0], -1)
         x = self.layers(x)
-        return x
+        if self.final_activation:
+            x_list = x.split(self.out_dim_list, dim=1)
+            out = [head(x_list[i]) for i, head in enumerate(self.head)]
+        return out
 
 
 @nitorchmodule
@@ -2859,15 +2871,15 @@ class HyperCycleSegNet(tnn.Sequential):
             dim,
             in_channels,
             out_channels,
-            hyper=False,
-            meta_dim=None,
-            fusion_depth=0,
+            meta_dim=1,
+            fusion_depth=2,
             encoder=None,
             decoder=None,
             kernel_size=3,
             stride=2,
             activation=tnn.LeakyReLU(),
             gan_activation=tnn.Tanh(),
+            gan_channels=gan_channels,
             batch_norm=True,
             residual=False,
             conv_per_layer=1):
