@@ -2813,17 +2813,32 @@ class GroupNet(tnn.Sequential):
 
         pad = self.get_padding(buffers[-1].shape, x.shape, self.bottleneck)
 
-        x = self.bottleneck(x, output_padding=pad)
+        if self.hyper and not self.fusion_depth:
+            # x = self.bottleneck(x, meta=meta, output_padding=pad)
+            x = self.bottleneck(x, meta=meta)
+        else:
+            x = self.bottleneck(x, output_padding=pad)
 
         # decoder
         for layer in self.decoder:
             buffer = buffers.pop()
             pad = self.get_padding(buffers[-1].shape, x.shape, layer)
-            x = layer(x, buffer, output_padding=pad)
+            if self.hyper and not self.fusion_depth:
+                x_cat = torch.cat((x, buffer), dim=1)
+                # x = layer(x_cat, meta=meta, output_padding=pad)
+                x = layer(x_cat, meta=meta, output_padding=pad)
+            else:
+                x = layer(x, buffer, output_padding=pad)
 
-        x = self.stack(x, buffers.pop())
-        f = x if return_feat else None
-        x = self.final(x)
+        if self.hyper and not self.fusion_depth:
+            x_cat = torch.cat((x, buffer), dim=1)
+            x = self.stack(x, meta=meta)
+            f = x if return_feat else None
+            x = self.final(x, meta=meta)
+        else:
+            x = self.stack(x, buffers.pop())
+            f = x if return_feat else None
+            x = self.final(x)
         return (x, f) if return_feat else x
 
     def get_padding(self, outshape, inshape, layer):
@@ -3178,4 +3193,3 @@ class HyperCycleSegNet(tnn.Sequential):
         shape = layer.shape(inshape)[2:]
         padding = [o - i for o, i in zip(outshape, shape)]
         return padding
-        
