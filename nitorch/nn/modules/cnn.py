@@ -969,7 +969,7 @@ class Generator(tnn.ModuleList):
         channels=None,
         batch_norm=True,
         activation=tnn.LeakyReLU(),
-        final_activation=tnn.Softmax(1)
+        final_activation=tnn.Tanh()
     ):
         """
         Parameters
@@ -1005,7 +1005,7 @@ class Generator(tnn.ModuleList):
         activation : callable, default=tnn.LeakyReLU()
             Activation function.
             
-        final_activation : callable, default=tnn.Softmax(dim=1)
+        final_activation : callable, default=tnn.Tanh()
             Final activation function.
 
         """
@@ -1088,7 +1088,7 @@ class Discriminator(tnn.ModuleList):
         channels=None,
         batch_norm=True,
         activation=tnn.LeakyReLU(),
-        final_activation=tnn.Softmax(1)
+        final_activation=tnn.Tanh()
     ):
         """
         Parameters
@@ -1121,7 +1121,7 @@ class Discriminator(tnn.ModuleList):
         activation : callable, default=tnn.LeakyReLU()
             Activation function.
             
-        final_activation : callable, default=tnn.Softmax(1)
+        final_activation : callable, default=tnn.Tanh()
             Final activation function.
 
         """
