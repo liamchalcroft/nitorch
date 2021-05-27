@@ -1209,7 +1209,7 @@ class Discriminator(tnn.ModuleList):
         conv=True,
         stride=2,
         channels=None,
-        batch_norm=True,
+        batch_norm=False,
         activation=tnn.LeakyReLU(),
         final_activation=tnn.Sigmoid(1)
     ):
@@ -1240,6 +1240,8 @@ class Discriminator(tnn.ModuleList):
 
         batch_norm : bool, default=False
             Batch normalization before each convolution.
+            Note that for Wasserstein-GAN Lipschitz constraints 
+            (https://arxiv.org/abs/1704.00028), batch_norm should be set to False or LayerNorm.
             
         activation : callable, default=tnn.LeakyReLU()
             Activation function.
