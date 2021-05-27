@@ -1379,6 +1379,7 @@ class HyperSegGenNet(Module):
                 gan_channels=None,
                 conv_per_layer=1,
                 residual=False,
+                delta_map=True,
                 batch_norm=True,
                 implicit=True,
                 augmentation=None,
@@ -1427,6 +1428,9 @@ class HyperSegGenNet(Module):
             This has no effect if only one convolution is performed.
             No residual connection is applied to the output of the last
             layer (strided conv or pool).
+
+        delta_map : bool, default=True
+            Add input to final output (pre-activation) as per https://arxiv.org/abs/1711.08998
 
         batch_norm : bool or callable, default=True
             Batch normalization layer.
@@ -1486,7 +1490,8 @@ class HyperSegGenNet(Module):
             gan_channels=gan_channels,
             batch_norm=batch_norm,
             conv_per_layer=conv_per_layer,
-            residual=residual
+            residual=residual,
+            delta_map=delta_map
             )
 
         # register loss tag
