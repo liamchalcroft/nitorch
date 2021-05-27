@@ -1489,22 +1489,8 @@ class HyperSegGenNet(Module):
             residual=residual
             )
 
-        self.discriminator_gan = Discriminator(
-            in_channels=gan_channels+input_channels,
-            dim=dim,
-            out_dim=(meta_dim,1),
-            conv=True
-        )
-
-        self.discriminator_seg = Discriminator(
-            in_channels=2*output_classes,
-            dim=dim,
-            out_dim=1,
-            conv=True
-        )
-
         # register loss tag
-        self.tags = ['segmentation', 'disc', 'gen']
+        self.tags = ['segmentation']
 
     # defer properties
     dim = property(lambda self: self.groupnet.dim)
@@ -1514,8 +1500,8 @@ class HyperSegGenNet(Module):
     activation = property(lambda self: self.groupnet.activation)
 
     def forward(self, image, ref=None, meta=None, 
-                seg=True, gan=False, 
-                gan_meta=None, ref_gan=None, 
+                seg=True, gan=False, gan_meta=None,
+                joint_seg=False,
                 *, _loss=None, _metric=None):
         """
 
@@ -1550,46 +1536,31 @@ class HyperSegGenNet(Module):
         # sanity check
         check.dim(self.dim, image)
 
-        if ref is not None:
+        if seg and ref is not None:
             # augment
             for aug_method in self.augmentation:
                 image, ref = augment(aug_method, image, ref)
 
-        # unet
+        if gan:
+            trans_t = self.groupnet(image, meta, gan, gan_meta)
+        
         if seg:
             prob = self.groupnet(image, meta, gan=False)
             if self.implicit and prob.shape[1] > self.output_classes:
                 prob = prob[:, :-1, ...]
-        if gan:
-            #TODO: Add discriminator predictions for positive and negative cases
-            trans_t = self.groupnet(image, meta, gan, gan_meta)
-            if ref_gan:
-                disc_t = self.discriminator_gan(torch.cat((ref_gan, trans_t), dim=1))
+            if gan:
+                prob_t = self.groupnet(trans_t, gan_meta, gan=True)
+                if self.implicit and prob.shape[1] > self.output_classes:
+                    prob = prob[:, :-1, ...]
 
-                trans_t_s = self.groupnet(trans_t, gan_meta, gan, meta)
-                disc_t_s = self.discriminator_gan(torch.cat((image, trans_t_s), dim=1))
-
-                trans_t_t = self.groupnet(trans_t_t, gan_meta, gan, gan_meta)
-                disc_t_t = self.discriminator_gan(torch.cat((ref_gan, trans_t_t), dim=1))
-
-                trans_s = self.groupnet(image, meta, gan, meta)
-                disc_s = self.discriminator_gan(torch.cat((image, trans_s), dim=1))
-
-            if seg:
-                prob_t = self.groupnet(trans_t, gan_meta, gan=False)
-
-                # if domain estimate to be used now then should be negative 
-                # (i.e. encourage segmentation to be domain-agnostic)
-                if ref:
-                    disc_seg_t = self.discriminator_seg(torch.cat((ref, prob_t)))
+                if joint_seg:
+                    prob = torch.mean(torch.stack([prob, prob_t]), dim=0)
 
         # compute loss and metrics
-        if ref is not None:
+        if seg and ref is not None:
             # sanity checks
             check.dim(self.dim, ref)
             dims = [0] + list(range(2, self.dim + 2))
             check.shape(prob, ref, dims=dims)
             self.compute(_loss, _metric, segmentation=[prob, ref])
         return prob
-
-    # TODO: add gradient penalty function as in WassersteinGAN objective
