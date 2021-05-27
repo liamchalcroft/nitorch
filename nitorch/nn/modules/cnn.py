@@ -300,6 +300,105 @@ class Up(tnn.ModuleList):
 
 
 @nitorchmodule
+class Attention(tnn.ModuleList):
+    """Attention gating mechanism as used in Attention U-Net
+    (https://arxiv.org/abs/1804.03999)
+    """
+
+    def __init__(
+        self,
+        dim,
+        encoder_channels,
+        decoder_channels,
+        intermediate_channels=None
+    ):
+    """
+    
+    Parameters
+    ----------
+
+    dim : {1, 2, 3}
+        Number of spatial dimensions.
+
+    encoder_channels : int
+        Number of input channels from encoder
+
+    decoder_channels : int
+        Number of input channels from decoder (typically will
+        equal 2 * encoder_channels)
+
+    intermediate_channels : int, default=None
+        Number of channels to use in intermediate
+        activations of attention gate. Typically use same
+        value as encoder_channels.
+        If None, will set intermediate_channels=decoder_channels
+
+    """
+
+        super().__init__()
+
+        if dim==1:
+            self.gate_weight = nn.Sequential(
+            nn.Conv1d(decoder_channels, intermediate_channels, kernel_size=1),
+            nn.BatchNorm1d(intermediate_channels)
+        )
+        elif dim==2:
+            self.gate_weight = nn.Sequential(
+                nn.Conv2d(decoder_channels, intermediate_channels, kernel_size=1),
+                nn.BatchNorm2d(intermediate_channels)
+        )
+        elif dim==3:
+            self.gate_weight = nn.Sequential(
+            nn.Conv3d(decoder_channels, intermediate_channels, kernel_size=1),
+            nn.BatchNorm3d(intermediate_channels)
+        )
+
+        if dim==1:
+            self.activation_weight = nn.Sequential(
+            nn.Conv1d(encoder_channels_channels, intermediate_channels, kernel_size=1),
+            nn.BatchNorm1d(intermediate_channels)
+        )
+        elif dim==2:
+            self.activation_weight = nn.Sequential(
+            nn.Conv2d(encoder_channels_channels, intermediate_channels, kernel_size=1),
+            nn.BatchNorm2d(intermediate_channels)
+        )
+        elif dim==3:
+            self.activation_weight = nn.Sequential(
+            nn.Conv3d(encoder_channels_channels, intermediate_channels, kernel_size=1),
+            nn.BatchNorm3d(intermediate_channels)
+        )
+
+        self.relu = nn.ReLU(inplace=True)
+
+        if dim==1:
+            self.psi = nn.Sequential(
+            nn.Conv1d(intermediate_channels, 1, kernel_size=1),
+            nn.BatchNorm1d(1),
+            nn.Sigmoid()
+        )
+        elif dim==2:
+            self.psi = nn.Sequential(
+            nn.Conv2d(intermediate_channels, 1, kernel_size=1),
+            nn.BatchNorm2d(1),
+            nn.Sigmoid()
+        )
+        elif dim==3:
+            self.psi = nn.Sequential(
+            nn.Conv3d(intermediate_channels, 1, kernel_size=1),
+            nn.BatchNorm3d(1),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x_enc, x_dec):
+        g = self.gate_weight(x_dec)
+        x = self.activation_weight(x_enc)
+        x = self.relu(x + g)
+        x = self.psi(x)
+        return x * x_enc
+
+
+@nitorchmodule
 class StackedConv(tnn.ModuleList):
     """Multiple convolutions at the same resolution followed by 
     a up- or down- sampling, using either a strided convolution or 
@@ -2696,7 +2795,7 @@ class GroupNet(tnn.Sequential):
                     activation=activation,
                     batch_norm=batch_norm,
                     residual=residual,
-                    transposed=True)
+                    transposed=True))
             else:
                 modules_decoder.append(DecodingLayer(
                     dim,
