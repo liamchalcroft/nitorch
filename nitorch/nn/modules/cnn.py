@@ -3005,6 +3005,7 @@ class HyperCycleSegNet(tnn.Sequential):
             gan_channels=gan_channels,
             batch_norm=True,
             residual=False,
+            delta_map=True,
             conv_per_layer=1):
         """
 
@@ -3064,12 +3065,16 @@ class HyperCycleSegNet(tnn.Sequential):
             No residual connection is applied to the output of the last
             layer (strided conv or pool).
 
+        delta_map : bool, default=True
+            Add input to final output (pre-activation) as per https://arxiv.org/abs/1711.08998
+
         conv_per_layer : int, default=1
             Number of convolution layers to use per stack.
         """
         self.dim = dim
         self.fusion_depth = fusion_depth
         self.hyper = hyper
+        self.delta_map
 
         # defaults
         conv_per_layer = max(1, conv_per_layer)
@@ -3288,6 +3293,7 @@ class HyperCycleSegNet(tnn.Sequential):
         buffers = []
         buffers.append(self.group[0](x, meta))
 
+        xi = x
         x = self.first(x, meta)
 
         # encoder
@@ -3314,13 +3320,16 @@ class HyperCycleSegNet(tnn.Sequential):
         x_cat = torch.cat((x, buffers.pop()), dim=1)
         if gan:
             x = self.stack_gan(x_cat, meta=gan_meta)
+            if self.delta_map is True:
+                delta = x
+                x = xi + delta
             f = x if return_feat else None
             x = self.final_gan(x, meta=gan_meta)
         else:
             x = self.stack(x, buffers.pop())
             f = x if return_feat else None
             x = self.final(x)
-        return (x, f) if return_feat else x
+        return (x, f, delta) if return_feat and self.delta_map else (x, f) if return_feat else x
 
     def get_padding(self, outshape, inshape, layer):
         outshape = outshape[2:]
