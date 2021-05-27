@@ -2983,37 +2983,36 @@ class HyperCycleSegNet(tnn.Sequential):
 
         # --- encoder -----------------------------------------------
         modules_encoder = []
+        bn = batch_norm
         for n in range(len(encoder) - 1):
             cin = encoder[n]
             cout = encoder[n + 1]
             cout = [cin] * (conv_per_layer - 1) + [cout]
-                if n < fusion_depth:
-                    bn = batch_norm
-                    modules_encoder.append(HyperStack(
-                        dim,
-                        in_channels=cin,
-                        out_channels=cout,
-                        meta_dim=meta_dim,
-                        kernel_size=kernel_size,
-                        stride=stride,
-                        activation=activation,
-                        batch_norm=bn,
-                        residual=residual
-                    ))
+            if n < fusion_depth:
+                modules_encoder.append(HyperStack(
+                    dim,
+                    in_channels=cin,
+                    out_channels=cout,
+                    meta_dim=meta_dim,
+                    kernel_size=kernel_size,
+                    stride=stride,
+                    activation=activation,
+                    batch_norm=bn,
+                    residual=residual
+                ))
             elif n == fusion_depth:
-                bn = batch_norm
-                    modules_encoder.append(HyperStack(
-                        dim,
-                        in_channels=cin,
-                        out_channels=cout,
-                        meta_dim=meta_dim,
-                        kernel_size=kernel_size,
-                        stride=stride,
-                        activation=activation,
-                        batch_norm=bn,
-                        residual=residual,
-                        grouppool=True
-                    ))
+                modules_encoder.append(HyperStack(
+                    dim,
+                    in_channels=cin,
+                    out_channels=cout,
+                    meta_dim=meta_dim,
+                    kernel_size=kernel_size,
+                    stride=stride,
+                    activation=activation,
+                    batch_norm=bn,
+                    residual=residual,
+                    grouppool=True
+                ))
                     
         modules['encoder'] = tnn.ModuleList(modules_encoder)
 
