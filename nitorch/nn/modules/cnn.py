@@ -390,12 +390,14 @@ class Attention(tnn.ModuleList):
             nn.Sigmoid()
         )
 
-    def forward(self, x_enc, x_dec):
-        g = self.gate_weight(x_dec)
-        x = self.activation_weight(x_enc)
+    def forward(self, x, x_cat=None):
+        if not x_cat:
+            x, x_cat = *x
+        g = self.gate_weight(x)
+        x = self.activation_weight(x_cat)
         x = self.relu(x + g)
         x = self.psi(x)
-        return x * x_enc
+        return x * cat
 
 
 @nitorchmodule
@@ -427,6 +429,8 @@ class StackedConv(tnn.ModuleList):
             output_padding=0,
             bias=True,
             residual=False,
+            attention=False,
+            cat_channels=None,
             return_last=False):
         """
 
@@ -478,6 +482,14 @@ class StackedConv(tnn.ModuleList):
             This has no effect if only one convolution is performed.
             No residual connection is applied to the output of the last
             layer (strided conv or pool).
+
+        attention : bool, default=False
+            Add attention-gating before concatenating.
+            Expects input list/tuple to be of format (x_enc, x_dec)
+
+        cat_channels : int, default=None
+            Encoder channels for attention gate.
+            Must be specified if attention=True.
 
         return_last : {'single', 'cat', 'single+cat'} or bool, default=False
             Return the last output before up/downsampling on top of the
@@ -555,6 +567,14 @@ class StackedConv(tnn.ModuleList):
         # final stitch
         if s > 1:
             modules.append(Stitch(s, s))
+
+        # (optional) attention gate
+        if attention:
+            self.attention = Attention(
+                cat_channels,
+                in_channels,
+                in_channels
+            )
                 
         super().__init__(modules)
         
@@ -635,6 +655,10 @@ class StackedConv(tnn.ModuleList):
         last = []
         if 'single' in return_last:
             last.append(x[0])
+        if self.attention:
+            x, x_cat = *x
+            x_cat = self.attention(x, x_cat)
+            x = (x, x_cat)
         x = torch.cat(x, 1) if len(x) > 1 else x[0]
         if 'cat' in return_last:
             last.append(x)
