@@ -1548,8 +1548,8 @@ class HyperSegGenNet(Module):
             prob = self.groupnet(image, meta, gan=False)
             if self.implicit and prob.shape[1] > self.output_classes:
                 prob = prob[:, :-1, ...]
-            if gan:
-                prob_t = self.groupnet(trans_t, gan_meta, gan=True)
+            if gan or joint_seg:
+                prob_t = self.groupnet(trans_t, gan_meta, gan=False)
                 if self.implicit and prob.shape[1] > self.output_classes:
                     prob = prob[:, :-1, ...]
 
@@ -1563,4 +1563,10 @@ class HyperSegGenNet(Module):
             dims = [0] + list(range(2, self.dim + 2))
             check.shape(prob, ref, dims=dims)
             self.compute(_loss, _metric, segmentation=[prob, ref])
-        return prob
+        
+        if gan and not seg:
+            return trans_t
+        elif gan and seg:
+            return prob, prob_t, trans_t
+        else:
+            return prob
