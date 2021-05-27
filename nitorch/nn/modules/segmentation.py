@@ -1504,7 +1504,7 @@ class HyperSegGenNet(Module):
         )
 
         # register loss tag
-        self.tags = ['segmentation']
+        self.tags = ['segmentation', 'disc', 'gen']
 
     # defer properties
     dim = property(lambda self: self.groupnet.dim)
@@ -1513,7 +1513,10 @@ class HyperSegGenNet(Module):
     kernel_size = property(lambda self: self.groupnet.kernel_size)
     activation = property(lambda self: self.groupnet.activation)
 
-    def forward(self, image, ref=None, meta=None, seg=True, gan=False, gan_meta=None, ref_gan=None, *, _loss=None, _metric=None):
+    def forward(self, image, ref=None, meta=None, 
+                seg=True, gan=False, 
+                gan_meta=None, ref_gan=None, 
+                *, _loss=None, _metric=None):
         """
 
         Parameters
