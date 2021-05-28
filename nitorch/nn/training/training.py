@@ -891,7 +891,7 @@ class SegGANTrainer:
         dim = len(real.shape) - 2
         # random number to scale between real & fake
         shape = [real.shape[0], 1]
-        _ = shape.append(1) for i in range(dim)
+        _ = [shape.append(1) for i in range(dim)]
         eps = torch.rand(shape)
 
         mix = (real * eps + fake * (1 - eps)).requires_grad_(True)
@@ -922,7 +922,7 @@ class SegGANTrainer:
         self.model.train()
         # check for translation data - need to extend to work for standard generation
         if len(self.train_set) == 2:
-            train_s, train_t = *self.train_set
+            train_s, train_t = self.train_set
             train_set = zip(train_s, train_t)
         else:
             train_set = self.train_set
@@ -938,7 +938,7 @@ class SegGANTrainer:
         for n_batch, batch in enumerate(train_set):
             losses = {}
             metrics = {}
-            batch_s, batch_t = *batch
+            batch_s, batch_t = batch
 
             # create batch for source domain
             batch_s = make_tuple(batch_s)
