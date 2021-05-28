@@ -3077,7 +3077,7 @@ class HyperCycleSegNet(tnn.Sequential):
         """
         self.dim = dim
         self.fusion_depth = fusion_depth
-        self.delta_map
+        self.delta_map = delta_map
         if not gan_channels:
             gan_channels = input_channels
 
