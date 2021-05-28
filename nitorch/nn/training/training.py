@@ -669,6 +669,7 @@ class SegGANTrainer:
                  cycle_loss=torch.nn.L1Loss(),
                  gen_interval=5,
                  seg_interval=20,
+                 adv_seg_start=5,
                  nb_epoch=100,
                  nb_steps=None,
                  *, # the remaining parameters *must be* keywords
@@ -785,6 +786,7 @@ class SegGANTrainer:
         self.cycle_loss = cycle_loss
         self.gen_interval = gen_interval
         self.seg_interval = seg_interval
+        self.adv_seg_start = adv_seg_start
         self.log_interval = log_interval
         self.benchmark = benchmark
         self.seed = seed
@@ -993,7 +995,7 @@ class SegGANTrainer:
             loss_d_gan.backward()
             self.optim_d_gan.step()
 
-            if n_batch // self.seg_interval > 5:
+            if n_batch // self.seg_interval > self.adv_seg_start:
             ## training segmentation discriminator
 
                 # segment images
@@ -1098,48 +1100,60 @@ class SegGANTrainer:
                 # segment images
                 s_seg = self.model(image=batch_s_img, meta=batch_s_met,
                                     seg=True, gan=False)
-                t_seg = self.model(image=batch_t_img, meta=batch_t_met,
-                                    seg=True, gan=False)
 
-                s_t_img = self.model(image=batch_s_img, meta=batch_s_met,
-                                    seg=False, gan=True, 
-                                    gan_meta=batch_t_met)
-                s_t_seg = self.model(image=s_t_img, meta=batch_t_met,
-                                    seg=True, gan=False)
+                if n_batch // self.seg_interval > self.adv_seg_start:
 
-                t_s_img = self.model(image=batch_t_img, meta=batch_t_met,
-                                    seg=False, gan=True, 
-                                    gan_meta=batch_s_met)
-                t_s_seg = self.model(image=t_s_img, meta=batch_t_met,
-                                    seg=True, gan=False)
+                    t_seg = self.model(image=batch_t_img, meta=batch_t_met,
+                                        seg=True, gan=False)
+
+                    s_t_img = self.model(image=batch_s_img, meta=batch_s_met,
+                                        seg=False, gan=True, 
+                                        gan_meta=batch_t_met)
+                    s_t_seg = self.model(image=s_t_img, meta=batch_t_met,
+                                        seg=True, gan=False)
+
+                    t_s_img = self.model(image=batch_t_img, meta=batch_t_met,
+                                        seg=False, gan=True, 
+                                        gan_meta=batch_s_met)
+                    t_s_seg = self.model(image=t_s_img, meta=batch_t_met,
+                                        seg=True, gan=False)
 
                 # supervised learning of source -> label
                 loss_seg_sup = self.seg_loss(s_seg, batch_s_ref)
 
-                # supervised learning of source -> target -> label
-                loss_seg_synth = self.seg_loss(s_t_seg, batch_s_ref)
+                if n_batch // self.seg_interval > self.adv_seg_start:
 
-                # test discriminator on segmentation
-                s_valid, s_class = self.disc_gan(s_seg)
-                t_valid, t_class = self.disc_gan(t_seg)
-                s_t_valid, s_t_class = self.disc_gan(s_t_seg)
-                t_s_valid, t_s_class = self.disc_gan(t_s_seg)
+                    # supervised learning of source -> target -> label
+                    loss_seg_synth = self.seg_loss(s_t_seg, batch_s_ref)
 
-                # adversarial
-                loss_seg_adv = -torch.mean(s_valid)
-                loss_seg_adv += -torch.mean(t_valid)
-                loss_seg_adv += -torch.mean(s_t_valid)
-                loss_seg_adv += -torch.mean(t_s_valid)
+                    # test discriminator on segmentation
+                    s_valid, s_class = self.disc_gan(s_seg)
+                    t_valid, t_class = self.disc_gan(t_seg)
+                    s_t_valid, s_t_class = self.disc_gan(s_t_seg)
+                    t_s_valid, t_s_class = self.disc_gan(t_s_seg)
 
-                # domain
-                loss_seg_dom = self.domain_loss(s_class, batch_s_met)
-                loss_seg_dom += self.domain_loss(t_class, batch_t_met)
-                loss_seg_dom += self.domain_loss(s_t_class, batch_t_met)
-                loss_seg_dom += self.domain_loss(t_s_class, batch_s_met)
+                    # adversarial
+                    loss_seg_adv = -torch.mean(s_valid)
+                    loss_seg_adv += -torch.mean(t_valid)
+                    loss_seg_adv += -torch.mean(s_t_valid)
+                    loss_seg_adv += -torch.mean(t_s_valid)
 
-                # calculate overall loss
-                loss_seg = loss_seg_sup + self.lambda_seg_synth * loss_seg_synth + \
-                    self.lambda_seg_adv * loss_seg_adv + self.lambda_seg_domain * loss_seg_domain
+                    # domain
+                    loss_seg_dom = self.domain_loss(s_class, batch_s_met)
+                    loss_seg_dom += self.domain_loss(t_class, batch_t_met)
+                    loss_seg_dom += self.domain_loss(s_t_class, batch_t_met)
+                    loss_seg_dom += self.domain_loss(t_s_class, batch_s_met)
+
+                if n_batch // self.seg_interval > self.adv_seg_start:
+
+                    # calculate overall loss
+                    loss_seg = loss_seg_sup + self.lambda_seg_synth * loss_seg_synth + \
+                        self.lambda_seg_adv * loss_seg_adv + self.lambda_seg_domain * loss_seg_domain
+
+                else:
+
+                    # only use T1 segmentation loss
+                    loss_seg = loss_seg_sup
 
                 loss_seg.backward()
                 self.optimizer.step()
