@@ -1300,7 +1300,7 @@ class Discriminator(tnn.ModuleList):
                 dim,
                 in_channels,
                 out_dim,
-                activation=[activation, final_activation]
+                activation=[activation, final_activation],
                 batch_norm=batch_norm
             )
         
