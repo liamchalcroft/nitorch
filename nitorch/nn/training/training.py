@@ -761,6 +761,7 @@ class SegGANTrainer:
         self.model = model
         if len(disc) == 2:
             self.disc_gan, self.disc_seg = disc
+            self.disc = None
         else:
             self.disc = disc
 
