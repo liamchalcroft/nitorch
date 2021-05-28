@@ -770,10 +770,10 @@ class SegGANTrainer:
         if optimizer is None:
             optimizer = torch.optim.Adam(model.parameters())
             if self.disc:
-                optim_d = torch.optim.Adam(self.disc.parameters())
+                self.optim_d = torch.optim.Adam(self.disc.parameters())
             elif self.disc_gan and self.disc_seg:
-                optim_d_gan = torch.optim.Adam(self.disc_gan.parameters())
-                optim_d_seg = torch.optim.Adam(self.disc_seg.parameters())
+                self.optim_d_gan = torch.optim.Adam(self.disc_gan.parameters())
+                self.optim_d_seg = torch.optim.Adam(self.disc_seg.parameters())
         self.optimizer = optimizer
         self.lambda_gp = lambda_gp
         self.lambda_domain = lambda_domain
