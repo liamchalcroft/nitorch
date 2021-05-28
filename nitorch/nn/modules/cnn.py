@@ -3336,11 +3336,11 @@ class HyperCycleSegNet(tnn.Sequential):
             x = self.stack(x, buffers.pop())
             f = x if return_feat else None
             x = self.final(x)
-        if return_feat and gan and self.delta_map:
+        if return_feat and gan is True and self.delta_map is True:
             return (x, f, delta)
-        elif return_feat and not gan or self.delta_map:
+        elif return_feat and not gan is True or not self.delta_map is True:
             return (x, f)
-        elif gan and self.delta_map and not return_feat:
+        elif gan is True and self.delta_map is True and not return_feat:
             return (x, delta)
         else:
             return x
