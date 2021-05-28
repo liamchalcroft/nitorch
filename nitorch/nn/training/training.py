@@ -917,6 +917,7 @@ class SegGANTrainer:
 
     def _train_gan(self, epoch=0):
         """Train GAN for one epoch"""
+        # TODO: Look at implementing FID metric for val
 
         self.model.train()
         # check for translation data - need to extend to work for standard generation
@@ -925,13 +926,18 @@ class SegGANTrainer:
             train_set = zip(train_s, train_t)
         else:
             train_set = self.train_set
-        epoch_loss = 0.
+        epoch_loss_d_gan = 0.
+        epoch_loss_d_seg = 0.
+        epoch_loss_g = 0.
+        epoch_loss_seg = 0.
         epoch_losses = {}
         epoch_metrics = {}
         nb_batches = 0
         nb_steps = len(train_set)
         ### TODO: add proper data-logging
         for n_batch, batch in enumerate(train_set):
+            losses = {}
+            metrics = {}
             batch_s, batch_t = *batch
 
             # create batch for source domain
@@ -992,6 +998,12 @@ class SegGANTrainer:
             # calculate overall loss
             loss_d_gan = loss_adv_d + self.lambda_domain * loss_dom_d
 
+            losses['loss_adv_d_gan'] = loss_adv_d
+            losses['loss_dom_d_gan'] = loss_dom_d
+            losses['loss_d_gan'] = loss_d_gan
+
+            epoch_loss_d_gan += loss_d_gan
+
             loss_d_gan.backward()
             self.optim_d_gan.step()
 
@@ -1024,6 +1036,12 @@ class SegGANTrainer:
 
                 # calculate overall loss
                 loss_d_seg = loss_adv_d + self.lambda_domain * loss_dom_d
+
+                losses['loss_adv_d_seg'] = loss_adv_d
+                losses['loss_dom_d_seg'] = loss_dom_d
+                losses['loss_d_seg'] = loss_d_seg
+
+                epoch_loss_d_seg += loss_d_seg
 
                 loss_d_seg.backward()
                 self.optim_d_seg.step()
@@ -1090,6 +1108,14 @@ class SegGANTrainer:
                 loss_g = loss_g_adv + self.lambda_domain * loss_g_dom + \
                     self.lambda_cyc * loss_g_cyc + self.lambda_id * loss_g_id
 
+                losses['loss_g_adv'] = loss_g_adv
+                losses['loss_g_dom'] = loss_g_dom
+                losses['loss_g_cyc'] = loss_g_cyc
+                losses['loss_g_id'] = loss_g_id
+                losses['loss_g'] = loss_g
+
+                epoch_loss_g += loss_g
+
                 loss_g.backward()
                 self.optimizer.step()
 
@@ -1150,18 +1176,60 @@ class SegGANTrainer:
                     loss_seg = loss_seg_sup + self.lambda_seg_synth * loss_seg_synth + \
                         self.lambda_seg_adv * loss_seg_adv + self.lambda_seg_domain * loss_seg_domain
 
+                    losses['loss_seg_sup'] = loss_seg_sup
+                    losses['loss_seg_synth'] = loss_seg_synth
+                    losses['loss_seg_adv'] = loss_seg_adv
+                    losses['loss_seg_domain'] = loss_seg_domain
+
                 else:
 
                     # only use T1 segmentation loss
                     loss_seg = loss_seg_sup
 
+                    losses['loss_seg_sup'] = loss_seg_sup
+
+                losses['loss_seg'] = loss_seg
+
+                epoch_loss_seg += loss_seg
+
                 loss_seg.backward()
                 self.optimizer.step()
-                # update average across batches
-                with torch.no_grad():
+            # update average across batches
+            with torch.no_grad():
+                weight = float(batch[0].shape[0])
+                epoch_loss += loss * weight
+                update_loss_dict(epoch_losses, losses, weight)
+                update_loss_dict(epoch_metrics, metrics, weight)
+                # print
+                if n_batch % self.log_interval == 0:
+                    self._print('train', epoch, n_batch+1, nb_steps,
+                                loss, losses, metrics)
+                # tb callback
+                if self.tensorboard:
+                    tbopt = dict(inputs=batch, outputs=output,
+                                 epoch=epoch, minibatch=n_batch, mode='train',
+                                 loss=loss, losses=losses, metrics=metrics)
+                    self.model.board(self.tensorboard, **tbopt)
+                    for func in self._tensorboard_callbacks['train']['step']:
+                        func(self.tensorboard, **tbopt)
+                    del tbopt
+        # print summary
+        with torch.no_grad():
+            epoch_loss /= nb_batches
+            normalize_loss_dict(epoch_losses, nb_batches)
+            normalize_loss_dict(epoch_metrics, nb_batches)
+            self._print('train', epoch, nb_steps, nb_steps,
+                        epoch_loss, epoch_losses, epoch_metrics, last=True)
+            self._board('train', epoch, epoch_loss, epoch_metrics)
+            # tb callback
+            if self.tensorboard:
+                tbopt = dict(epoch=epoch, loss=epoch_loss, mode='train',
+                             losses=epoch_losses, metrics=epoch_metrics)
+                self.model.board(self.tensorboard, **tbopt)
+                for func in self._tensorboard_callbacks['train']['epoch']:
+                    func(self.tensorboard, **tbopt)
 
-
-
+        return epoch_loss
 
     def _train_seg(self, epoch=0):
         """Train segmentation for one epoch"""
