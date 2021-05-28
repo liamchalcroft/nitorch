@@ -392,7 +392,7 @@ class Attention(tnn.ModuleList):
 
     def forward(self, x, x_cat=None):
         if not x_cat:
-            x, x_cat = *x
+            x, x_cat = x
         g = self.gate_weight(x)
         x = self.activation_weight(x_cat)
         x = self.relu(x + g)
@@ -656,7 +656,7 @@ class StackedConv(tnn.ModuleList):
         if 'single' in return_last:
             last.append(x[0])
         if self.attention:
-            x, x_cat = *x
+            x, x_cat = x
             x_cat = self.attention(x, x_cat)
             x = (x, x_cat)
         x = torch.cat(x, 1) if len(x) > 1 else x[0]
