@@ -3006,7 +3006,7 @@ class HyperCycleSegNet(tnn.Sequential):
             stride=2,
             activation=tnn.LeakyReLU(),
             gan_activation=tnn.Tanh(),
-            gan_channels=gan_channels,
+            gan_channels=None,
             batch_norm=True,
             residual=False,
             delta_map=True,
@@ -3079,6 +3079,8 @@ class HyperCycleSegNet(tnn.Sequential):
         self.fusion_depth = fusion_depth
         self.hyper = hyper
         self.delta_map
+        if not gan_channels:
+            gan_channels = input_channels
 
         # defaults
         conv_per_layer = max(1, conv_per_layer)
