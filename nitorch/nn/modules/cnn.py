@@ -311,29 +311,29 @@ class Attention(tnn.ModuleList):
         encoder_channels,
         decoder_channels,
         intermediate_channels=None
-    ):
-    """
-    
-    Parameters
-    ----------
+        ):
+        """
+        
+        Parameters
+        ----------
 
-    dim : {1, 2, 3}
-        Number of spatial dimensions.
+        dim : {1, 2, 3}
+            Number of spatial dimensions.
 
-    encoder_channels : int
-        Number of input channels from encoder
+        encoder_channels : int
+            Number of input channels from encoder
 
-    decoder_channels : int
-        Number of input channels from decoder (typically will
-        equal 2 * encoder_channels)
+        decoder_channels : int
+            Number of input channels from decoder (typically will
+            equal 2 * encoder_channels)
 
-    intermediate_channels : int, default=None
-        Number of channels to use in intermediate
-        activations of attention gate. Typically use same
-        value as encoder_channels.
-        If None, will set intermediate_channels=decoder_channels
+        intermediate_channels : int, default=None
+            Number of channels to use in intermediate
+            activations of attention gate. Typically use same
+            value as encoder_channels.
+            If None, will set intermediate_channels=decoder_channels
 
-    """
+        """
 
         super().__init__()
 
