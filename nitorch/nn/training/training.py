@@ -925,8 +925,10 @@ class SegGANTrainer:
         if len(self.train_set) == 2:
             train_s, train_t = self.train_set
             train_set = zip(train_s, train_t)
+            nb_steps = len(train_s)
         else:
             train_set = self.train_set
+            nb_steps = len(train_set)
         epoch_loss_d_gan = 0.
         epoch_loss_d_seg = 0.
         epoch_loss_g = 0.
@@ -934,7 +936,6 @@ class SegGANTrainer:
         epoch_losses = {}
         epoch_metrics = {}
         nb_batches = 0
-        nb_steps = len(train_set)
         ### TODO: add proper data-logging
         for n_batch, batch in enumerate(train_set):
             losses = {}
