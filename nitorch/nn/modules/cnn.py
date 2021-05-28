@@ -575,6 +575,8 @@ class StackedConv(tnn.ModuleList):
                 in_channels,
                 in_channels
             )
+        else:
+            self.attention = None
                 
         super().__init__(modules)
         
