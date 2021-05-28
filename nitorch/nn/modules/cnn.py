@@ -1211,7 +1211,7 @@ class Discriminator(tnn.ModuleList):
         channels=None,
         batch_norm=False,
         activation=tnn.LeakyReLU(),
-        final_activation=tnn.Sigmoid(1)
+        final_activation=None
     ):
         """
         Parameters
@@ -1246,7 +1246,7 @@ class Discriminator(tnn.ModuleList):
         activation : callable, default=tnn.LeakyReLU()
             Activation function.
             
-        final_activation : callable, default=tnn.Sigmoid(1)
+        final_activation : callable, default=None
             Final activation function.
 
         """
@@ -1308,9 +1308,11 @@ class Discriminator(tnn.ModuleList):
         if self.conv == False:
             x = x.view(x.shape[0], -1)
         x = self.layers(x)
+        x_list = x.split(self.out_dim_list, dim=1)
         if self.final_activation:
-            x_list = x.split(self.out_dim_list, dim=1)
             out = [head(x_list[i]) for i, head in enumerate(self.head)]
+        else:
+            out = x_list
         return out
 
 
