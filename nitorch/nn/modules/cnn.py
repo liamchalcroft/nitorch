@@ -3252,7 +3252,7 @@ class HyperCycleSegNet(tnn.Sequential):
         final_gan = HyperConv(
                     dim,
                     in_channels=last_stack,
-                    out_channels=cout,
+                    out_channels=gan_channels,
                     meta_dim=meta_dim,
                     kernel_size=kernel_size,
                     activation=gan_activation,
