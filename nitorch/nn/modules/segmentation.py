@@ -1327,6 +1327,7 @@ class HyperSegGenNet(Module):
         else:
             return prob
 
+
 def board(tb, inputs=None, outputs=None, epoch=None, minibatch=None,
           mode=None, loss=None, losses=None, metrics=None, implicit=False, dim=3):
     """TensorBoard visualisation of a segmentation model's inputs and outputs.
