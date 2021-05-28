@@ -3324,8 +3324,8 @@ class HyperCycleSegNet(tnn.Sequential):
             x = layer(x, buffer, output_padding=pad)
 
         # stack/head
-        x_cat = torch.cat((x, buffers.pop()), dim=1)
         if gan:
+            x_cat = torch.cat((x, buffers.pop()), dim=1)
             x = self.stack_gan(x_cat, meta=gan_meta)
             if self.delta_map is True:
                 delta = x
@@ -3336,7 +3336,14 @@ class HyperCycleSegNet(tnn.Sequential):
             x = self.stack(x, buffers.pop())
             f = x if return_feat else None
             x = self.final(x)
-        return (x, f, delta) if return_feat and self.delta_map else (x, f) if return_feat else x
+        if return_feat and gan and self.delta_map:
+            return (x, f, delta)
+        elif return_feat and not gan or self.delta_map:
+            return (x, f)
+        elif gan and self.delta_map and not return_feat:
+            return (x, delta)
+        else:
+            return x
 
     def get_padding(self, outshape, inshape, layer):
         outshape = outshape[2:]
