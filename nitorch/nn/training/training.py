@@ -760,7 +760,7 @@ class SegGANTrainer:
         """
         self.model = model
         if len(disc) == 2:
-            self.disc_gan, self.disc_seg = *disc
+            self.disc_gan, self.disc_seg = disc
         else:
             self.disc = disc
 
