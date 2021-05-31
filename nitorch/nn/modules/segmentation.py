@@ -1298,7 +1298,10 @@ class HyperSegGenNet(Module):
                 image, ref = augment(aug_method, image, ref)
 
         if gan:
-            trans_t = self.groupnet(image, meta, gan, gan_meta)
+            if self.delta_map:
+                trans_t, delta_trans_t = self.groupnet(image, meta, gan, gan_meta)
+            else:
+                trans_t = self.groupnet(image, meta, gan, gan_meta)
         
         if seg:
             prob = self.groupnet(image, meta, gan=False)
