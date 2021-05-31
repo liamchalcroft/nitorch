@@ -1307,12 +1307,12 @@ class Discriminator(tnn.Sequential):
                 channels = (16, 32, 64)
             head_ch = [(channels[-1], dim) for dim in self.out_dim_list]
 
-            self.enc = tnn.Sequential(Encoder(dim,
+            self.enc = Encoder(dim,
                       in_channels=in_channels,
                       out_channels=channels,
                       activation=activation,
                       batch_norm=batch_norm
-                      ))
+                      )
             self.red = Reduction(reduction=reduction)
             self.head = [tnn.Sequential(StackedConv(dim,
                           in_channels=channels[-1],
@@ -1332,7 +1332,8 @@ class Discriminator(tnn.Sequential):
             else:
                 out = x_list
         else:
-            x = self.enc(x)
+            for enc_ in self.enc:
+                x = enc_(x)
             x = self.red(x)
             out = [head(x) for head in self.head]
         return out
