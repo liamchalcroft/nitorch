@@ -949,6 +949,10 @@ class SegGANTrainer:
         for n_batch, batch in enumerate(train_set):
             losses = {}
             metrics = {}
+            loss_d_gan = 0.
+            loss_d_seg = 0.
+            loss_g = 0.
+            loss_seg = 0.
             batch_s, batch_t = batch
 
             # create batch for source domain
@@ -1013,13 +1017,11 @@ class SegGANTrainer:
             losses['loss_dom_d_gan'] = loss_dom_d
             losses['loss_d_gan'] = loss_d_gan
 
-            epoch_loss_d_gan += loss_d_gan
-
             loss_d_gan.backward()
             self.optim_d_gan.step()
 
             if n_batch // self.seg_interval > self.adv_seg_start:
-            ## training segmentation discriminator
+                ## training segmentation discriminator
 
                 # segment images
                 s_seg = self.model(image=batch_s_img, meta=batch_s_met,
@@ -1051,8 +1053,6 @@ class SegGANTrainer:
                 losses['loss_adv_d_seg'] = loss_adv_d
                 losses['loss_dom_d_seg'] = loss_dom_d
                 losses['loss_d_seg'] = loss_d_seg
-
-                epoch_loss_d_seg += loss_d_seg
 
                 loss_d_seg.backward()
                 self.optim_d_seg.step()
@@ -1124,8 +1124,6 @@ class SegGANTrainer:
                 losses['loss_g_cyc'] = loss_g_cyc
                 losses['loss_g_id'] = loss_g_id
                 losses['loss_g'] = loss_g
-
-                epoch_loss_g += loss_g
 
                 loss_g.backward()
                 self.optimizer.step()
@@ -1201,14 +1199,15 @@ class SegGANTrainer:
 
                 losses['loss_seg'] = loss_seg
 
-                epoch_loss_seg += loss_seg
-
                 loss_seg.backward()
                 self.optimizer.step()
             # update average across batches
             with torch.no_grad():
                 weight = float(batch_s[0].shape[0])
-                epoch_loss += loss * weight
+                epoch_loss_d_gan += loss_d_gan * weight
+                epoch_loss_d_seg += loss_d_seg * weight
+                epoch_loss_g += loss_g * weight
+                epoch_loss_seg += loss_seg * weight
                 update_loss_dict(epoch_losses, losses, weight)
                 update_loss_dict(epoch_metrics, metrics, weight)
                 # print
