@@ -1226,7 +1226,7 @@ class Discriminator(tnn.Sequential):
         in_channels : int, default=1
             Number of channels in input image/volume.
 
-        dim : {1, 2, 3, None}, default=None
+        dim : {1, 2, 3, None}, default=3
             Dimension of generated image. If None, will infer from out_shape.
             
         out_dim : int or sequence(int), default=2
