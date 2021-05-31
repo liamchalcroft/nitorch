@@ -1314,12 +1314,12 @@ class Discriminator(tnn.Sequential):
                       batch_norm=batch_norm
                       )
             self.red = Reduction(reduction=reduction, keepdim=True)
-            self.head = [tnn.Sequential(StackedConv(dim,
+            self.head = tnn.ModuleList([tnn.Sequential(StackedConv(dim,
                           in_channels=channels[-1],
                           out_channels=head_ch_,
                           kernel_size=1,
                           activation=final_activation
-                          )) for head_ch_ in head_ch]
+                          )) for head_ch_ in head_ch])
         
     def forward(self, x):
         if self.conv == False:
