@@ -1117,7 +1117,7 @@ class SegGANTrainer:
                 # overall loss
 
                 loss_g = loss_g_adv + self.lambda_domain * loss_g_dom + \
-                    self.lambda_cyc * loss_g_cyc + self.lambda_id * loss_g_id
+                    self.lambda_cycle * loss_g_cyc + self.lambda_id * loss_g_id
 
                 losses['loss_g_adv'] = loss_g_adv
                 losses['loss_g_dom'] = loss_g_dom
