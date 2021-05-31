@@ -1313,7 +1313,7 @@ class Discriminator(tnn.Sequential):
                       activation=activation,
                       batch_norm=batch_norm
                       )
-            self.red = Reduction(reduction=reduction)
+            self.red = Reduction(reduction=reduction, keepdim=True)
             self.head = [tnn.Sequential(StackedConv(dim,
                           in_channels=channels[-1],
                           out_channels=head_ch_,
