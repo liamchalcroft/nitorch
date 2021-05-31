@@ -1204,10 +1204,14 @@ class SegGANTrainer:
             # update average across batches
             with torch.no_grad():
                 weight = float(batch_s[0].shape[0])
+
                 epoch_loss_d_gan += loss_d_gan * weight
                 epoch_loss_d_seg += loss_d_seg * weight
                 epoch_loss_g += loss_g * weight
                 epoch_loss_seg += loss_seg * weight
+
+                loss = loss_d_gan + loss_d_seg + loss_g + loss_seg
+
                 update_loss_dict(epoch_losses, losses, weight)
                 update_loss_dict(epoch_metrics, metrics, weight)
                 # print
@@ -1225,6 +1229,7 @@ class SegGANTrainer:
                     del tbopt
         # print summary
         with torch.no_grad():
+            epoch_loss = epoch_loss_d_gan + epoch_loss_d_seg + epoch_loss_g + epoch_loss_seg
             epoch_loss /= nb_batches
             normalize_loss_dict(epoch_losses, nb_batches)
             normalize_loss_dict(epoch_metrics, nb_batches)
