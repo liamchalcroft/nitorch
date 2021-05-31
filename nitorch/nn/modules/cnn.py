@@ -1079,7 +1079,7 @@ class Decoder(tnn.ModuleList):
 
 
 @nitorchmodule
-class Generator(tnn.ModuleList):
+class Generator(tnn.Sequential):
     """Generator network for e.g. GANs.
     TODO: Add option for sub-pixel convolution."""
 
@@ -1200,7 +1200,7 @@ class Generator(tnn.ModuleList):
 
 
 @nitorchmodule
-class Discriminator(tnn.ModuleList):
+class Discriminator(tnn.Sequential):
     """Discriminator network for e.g. GANs, Adversarial Domain Adaptation."""
     def __init__(
         self,
