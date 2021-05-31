@@ -1324,7 +1324,8 @@ class Discriminator(tnn.Sequential):
     def forward(self, x):
         if self.conv == False:
             x = x.view(x.shape[0], -1)
-            x = layer(x) for layer in self.layers
+            for layer in self.layers:
+                x = layer(x)
             x_list = x.split(self.out_dim_list, dim=1)
             if self.final_activation:
                 out = [head(x_list[i]) for i, head in enumerate(self.head)]
