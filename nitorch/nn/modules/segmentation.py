@@ -1301,9 +1301,9 @@ class HyperSegGenNet(Module):
 
         if gan or joint_seg:
             if self.delta_map:
-                trans_t, delta_trans_t = self.groupnet(image, meta, gan=True, gan_meta)
+                trans_t, delta_trans_t = self.groupnet(image, meta, gan=True, gan_meta=gan_meta)
             else:
-                trans_t = self.groupnet(image, meta, gan=True, gan_meta)
+                trans_t = self.groupnet(image, meta, gan=True, gan_meta=gan_meta)
         
         if seg:
             prob = self.groupnet(image, meta, gan=False)
