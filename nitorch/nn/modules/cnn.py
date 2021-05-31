@@ -1266,7 +1266,7 @@ class Discriminator(tnn.Sequential):
 
         if isinstance(out_dim, (tuple)):
             out_dim = list(out_dim)
-        if isinstance(out_dim, (tuple)):
+        if isinstance(out_dim, (list)):
             self.out_dim_list = out_dim
             out_dim = sum(out_dim)
         else:
