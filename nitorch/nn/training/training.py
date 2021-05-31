@@ -889,6 +889,9 @@ class SegGANTrainer:
     def wass_gp(self, disc, real, fake):
         # Adapted from example provided by @eriklindernoren on GitHub
 
+        # debugging - print device of tensors
+        print('real: {}\nfake: {}'.format(real.device, fake.device))
+
         # assume [B, C, **] -> dim = length of shape excluding B & C
         dim = len(real.shape) - 2
         # random number to scale between real & fake
