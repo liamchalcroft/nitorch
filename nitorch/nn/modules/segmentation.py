@@ -1299,7 +1299,7 @@ class HyperSegGenNet(Module):
             for aug_method in self.augmentation:
                 image, ref = augment(aug_method, image, ref)
 
-        if gan:
+        if gan or joint_seg:
             if self.delta_map:
                 trans_t, delta_trans_t = self.groupnet(image, meta, gan, gan_meta)
             else:
