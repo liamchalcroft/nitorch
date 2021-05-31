@@ -1335,7 +1335,9 @@ class Discriminator(tnn.Sequential):
             for enc_ in self.enc:
                 x = enc_(x)
             x = self.red(x)
-            out = [head(x) for head in self.head]
+            out = []
+            for head_ in self.head:
+                out.append(head_(x))
         return out
 
 
