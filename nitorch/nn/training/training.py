@@ -1207,7 +1207,7 @@ class SegGANTrainer:
                 self.optimizer.step()
             # update average across batches
             with torch.no_grad():
-                weight = float(batch[0].shape[0])
+                weight = float(batch_s[0].shape[0])
                 epoch_loss += loss * weight
                 update_loss_dict(epoch_losses, losses, weight)
                 update_loss_dict(epoch_metrics, metrics, weight)
