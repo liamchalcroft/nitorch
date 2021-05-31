@@ -890,7 +890,8 @@ class SegGANTrainer:
         # Adapted from example provided by @eriklindernoren on GitHub
 
         # debugging - print device of tensors
-        print('real: {}\nfake: {}'.format(real.device, fake.device))
+        device = real.device
+        fake = fake.to(device)
 
         # assume [B, C, **] -> dim = length of shape excluding B & C
         dim = len(real.shape) - 2
@@ -898,12 +899,14 @@ class SegGANTrainer:
         shape = [real.shape[0], 1]
         _ = [shape.append(1) for i in range(dim)]
         eps = torch.rand(shape)
+        eps = eps.to(device)
 
         mix = (real * eps + fake * (1 - eps)).requires_grad_(True)
 
         disc_mix = disc(mix)
 
         fake_ = torch.ones(disc_mix.shape, requires_grad=False)
+        fake_ = fake_.to(device)
 
         grad = torch.autograd.grad(
             outputs=disc_mix,
