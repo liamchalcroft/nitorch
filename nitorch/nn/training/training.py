@@ -1042,8 +1042,8 @@ class SegGANTrainer:
                         self.lambda_gp * grad_pen
 
                 # domain
-                loss_dom_d = 0.5 * (self.domain_loss(s_class, batch_s_met) + \
-                    self.domain_loss(t_class, batch_t_met))
+                loss_dom_d = 0.5 * (self.domain_loss(s_class, torch.max(batch_s_met, 1)[1]) + \
+                    self.domain_loss(t_class, torch.max(batch_t_met, 1)[1]))
 
                 # calculate overall loss
                 loss_d_seg = loss_adv_d + self.lambda_domain * loss_dom_d
@@ -1069,7 +1069,7 @@ class SegGANTrainer:
 
                 loss_g_adv = - torch.mean(fake_valid)
 
-                loss_g_dom = self.domain_loss(fake_class, batch_t_met)
+                loss_g_dom = self.domain_loss(fake_class, torch.max(batch_t_met, 1)[1])
 
                 # target -> source
                 t_s_img = self.model(image=batch_s_img, meta=batch_s_met,
@@ -1080,7 +1080,7 @@ class SegGANTrainer:
 
                 loss_g_adv += - torch.mean(fake_valid)
 
-                loss_g_dom += self.domain_loss(fake_class, batch_s_met)
+                loss_g_dom += self.domain_loss(fake_class, torch.max(batch_s_met, 1)[1])
 
                 # source -> target -> source
 
@@ -1176,10 +1176,10 @@ class SegGANTrainer:
                     loss_seg_adv += -torch.mean(t_s_valid)
 
                     # domain
-                    loss_seg_dom = self.domain_loss(s_class, batch_s_met)
-                    loss_seg_dom += self.domain_loss(t_class, batch_t_met)
-                    loss_seg_dom += self.domain_loss(s_t_class, batch_t_met)
-                    loss_seg_dom += self.domain_loss(t_s_class, batch_s_met)
+                    loss_seg_dom = self.domain_loss(s_class, torch.max(batch_s_met, 1)[1])
+                    loss_seg_dom += self.domain_loss(t_class, torch.max(batch_t_met, 1)[1])
+                    loss_seg_dom += self.domain_loss(s_t_class, torch.max(batch_t_met, 1)[1])
+                    loss_seg_dom += self.domain_loss(t_s_class, torch.max(batch_s_met, 1)[1])
 
                 if n_batch // self.seg_interval > self.adv_seg_start:
 
