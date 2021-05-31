@@ -1306,7 +1306,7 @@ class Discriminator(tnn.Sequential):
             if not channels:
                 channels = (16, 32, 64)
             head_ch = [(channels[-1], dim) for dim in self.out_dim_list]
-            print(head_ch)
+            self.head_ch = head_ch
 
             self.enc = Encoder(dim,
                       in_channels=in_channels,
