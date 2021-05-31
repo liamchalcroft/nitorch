@@ -1326,15 +1326,9 @@ class HyperSegGenNet(Module):
             self.compute(_loss, _metric, segmentation=[prob, ref])
         
         if gan and not seg:
-            if self.delta_map:
-                return trans_t, delta_trans_t
-            else:
-                return trans_t
+            return trans_t
         elif gan and seg:
-            if self.delta_map:
-                return prob, prob_t, trans_t, delta_trans_t
-            else:
-                return prob, prob_t, trans_t
+            return prob, prob_t, trans_t
         else:
             return prob
 
