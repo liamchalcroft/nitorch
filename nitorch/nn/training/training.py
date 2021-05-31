@@ -886,7 +886,7 @@ class SegGANTrainer:
         self._eval_set = val
         self._update_nb_steps()
 
-    def wass_gp(disc, real, fake):
+    def wass_gp(self, disc, real, fake):
         # Adapted from example provided by @eriklindernoren on GitHub
 
         # assume [B, C, **] -> dim = length of shape excluding B & C
@@ -980,7 +980,7 @@ class SegGANTrainer:
             fake_valid, fake_class = self.disc_gan(trans_t_img)
 
             # calculate wasserstein gradient penalty
-            grad_pen = wass_gp(self.disc_gan, batch_s_img, trans_t_img)
+            grad_pen = self.wass_gp(self.disc_gan, batch_s_img, trans_t_img)
 
             # adversarial
             loss_adv_d = -torch.mean(real_valid) + torch.mean(fake_valid) + self.lambda_gp * grad_pen
@@ -994,7 +994,7 @@ class SegGANTrainer:
                                     gan_meta=batch_s_met)
             real_valid, real_class = self.disc_gan(batch_t_img)
             fake_valid, _ = self.disc_gan(trans_s_img)
-            grad_pen = wass_gp(self.disc_gan, batch_s_img, trans_t_img)
+            grad_pen = self.wass_gp(self.disc_gan, batch_s_img, trans_t_img)
             loss_adv_d += -torch.mean(real_valid) + torch.mean(fake_valid) + self.lambda_gp * grad_pen
             loss_dom_d += self.domain_loss(real_class, batch_t_met)
 
@@ -1025,8 +1025,8 @@ class SegGANTrainer:
                 t_valid, t_class = self.disc_gan(t_seg)
 
                 # calculate wasserstein gradient penalty
-                grad_pen = 0.5 * (wass_gp(self.disc_seg, batch_s_ref, s_seg) + \
-                    wass_gp(self.disc_seg, batch_s_ref, t_seg))
+                grad_pen = 0.5 * (self.wass_gp(self.disc_seg, batch_s_ref, s_seg) + \
+                    self.wass_gp(self.disc_seg, batch_s_ref, t_seg))
 
                 # adversarial
                 loss_adv_d = -torch.mean(gt_valid) + \
