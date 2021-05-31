@@ -1213,7 +1213,8 @@ class Discriminator(tnn.ModuleList):
         channels=None,
         batch_norm=False,
         activation=tnn.LeakyReLU(),
-        final_activation=None
+        final_activation=None,
+        reduction='max'
     ):
         """
         Parameters
@@ -1250,6 +1251,10 @@ class Discriminator(tnn.ModuleList):
             
         final_activation : callable, default=None
             Final activation function.
+
+        reduction : {'max', 'min', 'median', 'mean', 'sum'}, default='max'
+            Reduction function, that transitions between the encoding
+            layers and fully connected layers.
 
         """
 
@@ -1298,23 +1303,37 @@ class Discriminator(tnn.ModuleList):
             self.layers = tnn.ModuleList(layers)
 
         else:
-            self.layers = CNN(
-                dim,
-                in_channels,
-                out_dim,
-                activation=[activation, final_activation],
-                batch_norm=batch_norm
-            )
+            if not channels:
+                channels = (16, 32, 64)
+            head_ch = [(channels[-1], dim) for dim in self.out_dim_list]
+
+            self.enc = Encoder(dim,
+                      in_channels=in_channels,
+                      out_channels=channels,
+                      activation=activation,
+                      batch_norm=batch_norm
+                      )
+            self.red = Reduction(reduction=reduction)
+            self.head = [StackedConv(dim,
+                          in_channels=channels[-1],
+                          out_channels=head_ch_,
+                          kernel_size=1,
+                          activation=final_activation
+                          ) for head_ch_ in head_ch]
         
     def forward(self, x):
         if self.conv == False:
             x = x.view(x.shape[0], -1)
-        x = self.layers(x)
-        x_list = x.split(self.out_dim_list, dim=1)
-        if self.final_activation:
-            out = [head(x_list[i]) for i, head in enumerate(self.head)]
+            x = self.layers(x)
+            x_list = x.split(self.out_dim_list, dim=1)
+            if self.final_activation:
+                out = [head(x_list[i]) for i, head in enumerate(self.head)]
+            else:
+                out = x_list
         else:
-            out = x_list
+            x = self.enc(x)
+            x = self.red(x)
+            out = [head(x) for head in self.head]
         return out
 
 
