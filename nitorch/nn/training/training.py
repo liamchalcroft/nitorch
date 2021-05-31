@@ -994,7 +994,7 @@ class SegGANTrainer:
             loss_adv_d = -torch.mean(real_valid) + torch.mean(fake_valid) + self.lambda_gp * grad_pen
 
             # domain
-            loss_dom_d = self.domain_loss(real_class, torch.max(batch_s_met, 1)[1].long())
+            loss_dom_d = self.domain_loss(real_class, torch.max(batch_s_met, 1)[1])
 
             # repeat for target -> source
             trans_s_img = self.model(image=batch_t_img, meta=batch_t_met,
@@ -1004,7 +1004,7 @@ class SegGANTrainer:
             fake_valid, _ = self.disc_gan(trans_s_img)
             grad_pen = self.wass_gp(self.disc_gan, batch_s_img, trans_t_img)
             loss_adv_d += -torch.mean(real_valid) + torch.mean(fake_valid) + self.lambda_gp * grad_pen
-            loss_dom_d += self.domain_loss(real_class, batch_t_met)
+            loss_dom_d += self.domain_loss(real_class, torch.max(batch_t_met, 1)[1])
 
             # calculate overall loss
             loss_d_gan = loss_adv_d + self.lambda_domain * loss_dom_d
