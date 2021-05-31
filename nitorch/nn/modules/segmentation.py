@@ -1209,6 +1209,8 @@ class HyperSegGenNet(Module):
         """
         super().__init__()
 
+        self.delta_map = delta_map
+
         self.implicit = implicit
         self.output_classes = output_classes
         if not isinstance(augmentation, (list, tuple)):  augmentation = [augmentation]
