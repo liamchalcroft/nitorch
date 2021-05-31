@@ -904,6 +904,8 @@ class SegGANTrainer:
         mix = (real * eps + fake * (1 - eps)).requires_grad_(True)
 
         disc_mix = disc(mix)
+        if isinstance(disc_mix, (list, tuple)):
+            disc_mix = disc[0]
 
         fake_ = torch.ones(disc_mix.shape, requires_grad=False)
         fake_ = fake_.to(device)
