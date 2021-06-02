@@ -931,7 +931,7 @@ class PreTrainer:
             self.optimizer.zero_grad()
 
             image = self.rubiks_gen(target, kernel)
-            output = self.model(image, meta=meta)
+            output = self.model(image, meta=meta, return_feat=True)[-1]
 
             if adv == True:
                 self.adv_opt.zero_grad()

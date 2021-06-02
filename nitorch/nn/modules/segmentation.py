@@ -1259,7 +1259,7 @@ class HyperSegGenNet(Module):
 
     def forward(self, image, ref=None, meta=None, 
                 seg=True, gan=False, gan_meta=None,
-                joint_seg=False,
+                joint_seg=False, return_feat=False,
                 *, _loss=None, _metric=None):
         """
 
@@ -1297,22 +1297,22 @@ class HyperSegGenNet(Module):
         if seg and ref is not None:
             # augment
             for aug_method in self.augmentation:
-                image, ref = augment(aug_method, image, ref)
+                image, ref = augment(aug_method, image, ref, return_feat=return_feat)
 
         if gan or joint_seg:
             if self.delta_map:
-                trans_t, delta_trans_t = self.groupnet(image, meta, gan=True, gan_meta=gan_meta)
+                trans_t, delta_trans_t = self.groupnet(image, meta, gan=True, gan_meta=gan_meta, return_feat=return_feat)
             else:
-                trans_t = self.groupnet(image, meta, gan=True, gan_meta=gan_meta)
+                trans_t = self.groupnet(image, meta, gan=True, gan_meta=gan_meta, return_feat=return_feat)
         
         if seg:
-            prob = self.groupnet(image, meta, gan=False)
+            prob = self.groupnet(image, meta, gan=False, return_feat=return_feat)
             if self.implicit and prob.shape[1] > self.output_classes:
                 prob = prob[:, :-1, ...]
             if gan or joint_seg:
-                prob_t = self.groupnet(trans_t, gan_meta, gan=False)
-                if self.implicit and prob.shape[1] > self.output_classes:
-                    prob = prob[:, :-1, ...]
+                prob_t = self.groupnet(trans_t, gan_meta, gan=False, return_feat=return_feat)
+                if self.implicit and prob_t.shape[1] > self.output_classes:
+                    prob_t = prob_t[:, :-1, ...]
 
                 if joint_seg:
                     prob = torch.mean(torch.stack([prob, prob_t]), dim=0)
