@@ -1297,7 +1297,7 @@ class HyperSegGenNet(Module):
         if seg and ref is not None:
             # augment
             for aug_method in self.augmentation:
-                image, ref = augment(aug_method, image, ref, return_feat=return_feat)
+                image, ref = augment(aug_method, image, ref)
 
         if gan or joint_seg:
             if self.delta_map:
