@@ -651,6 +651,7 @@ class PreTrainer:
 
     _nb_steps = None
     _train_set = None
+    _eval_set = None
     _tensorboard = None
     _tensorboard_callbacks = None
     random_state = []
