@@ -1234,6 +1234,16 @@ class PreTrainer:
                                  for device in devices)
 
     def train1(self):
+        """Train for one epoch."""
+        with torch.random.fork_rng():
+            self.set_random_state()
+            self.model.to(dtype=self.dtype, device=self.device)
+            self.epoch += 1
+            self._train(self.epoch)
+            self._eval(self.epoch)
+            self._save(self.epoch)
+            self.save_random_state()
+
 
 class SegGANTrainer:
     """Training class for Seg+CycleGAN model, may need tweaking for general use."""
