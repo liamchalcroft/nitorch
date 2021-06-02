@@ -907,7 +907,7 @@ class PreTrainer:
         self._eval_set = val
         self._update_nb_steps()
 
-    def _train(self, epoch=0, adv=False):
+    def _train(self, epoch=0, adv=False, kernel=[10,10,10]):
         """Train for one epoch"""
 
         self.model.train()
@@ -929,7 +929,7 @@ class PreTrainer:
                 meta = None
             self.optimizer.zero_grad()
 
-            image = self.rubiks_gen(target)
+            image = self.rubiks_gen(target, kernel)
             output = self.model(image, meta=meta)
 
             if adv == True:
