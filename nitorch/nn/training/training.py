@@ -951,31 +951,31 @@ class PreTrainer:
             with torch.no_grad():
                 weight = float(batch[0].shape[0])
                 epoch_loss += loss * weight
-                # print
-                if n_batch % self.log_interval == 0:
-                    self._print('train', epoch, n_batch+1, nb_steps,
-                                loss)
-                # tb callback
-                if self.tensorboard:
-                    tbopt = dict(inputs=batch, outputs=output,
-                                 epoch=epoch, minibatch=n_batch, mode='train',
-                                 loss=loss)
-                    self.model.board(self.tensorboard, **tbopt)
-                    for func in self._tensorboard_callbacks['train']['step']:
-                        func(self.tensorboard, **tbopt)
-                    del tbopt
+                # # print
+                # if n_batch % self.log_interval == 0:
+                #     self._print('train', epoch, n_batch+1, nb_steps,
+                #                 loss)
+                # # tb callback
+                # if self.tensorboard:
+                #     tbopt = dict(inputs=batch, outputs=output,
+                #                  epoch=epoch, minibatch=n_batch, mode='train',
+                #                  loss=loss)
+                #     self.model.board(self.tensorboard, **tbopt)
+                #     for func in self._tensorboard_callbacks['train']['step']:
+                #         func(self.tensorboard, **tbopt)
+                #     del tbopt
         # print summary
         with torch.no_grad():
             epoch_loss /= nb_batches
-            self._print('train', epoch, nb_steps, nb_steps,
-                        epoch_loss, last=True)
-            self._board('train', epoch)
-            # tb callback
-            if self.tensorboard:
-                tbopt = dict(epoch=epoch, loss=epoch_loss, mode='train')
-                self.model.board(self.tensorboard, **tbopt)
-                for func in self._tensorboard_callbacks['train']['epoch']:
-                    func(self.tensorboard, **tbopt)
+            # self._print('train', epoch, nb_steps, nb_steps,
+            #             epoch_loss, last=True)
+            # self._board('train', epoch)
+            # # tb callback
+            # if self.tensorboard:
+            #     tbopt = dict(epoch=epoch, loss=epoch_loss, mode='train')
+            #     self.model.board(self.tensorboard, **tbopt)
+            #     for func in self._tensorboard_callbacks['train']['epoch']:
+            #         func(self.tensorboard, **tbopt)
 
         return epoch_loss
 
