@@ -931,7 +931,7 @@ class PreTrainer:
             self.optimizer.zero_grad()
 
             image = self.rubiks_gen(target, kernel)
-            output = torch.mean(self.model(image, meta=meta, return_feat=True)[-1], dim=1, keepdim=True)
+            output = self.model(image, meta=meta, seg=False, gan=True, gan_meta=meta)
 
             if adv == True:
                 self.adv_opt.zero_grad()
