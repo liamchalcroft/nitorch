@@ -941,9 +941,9 @@ class PreTrainer:
                 loss_adv_d = -torch.mean(real_true) + torch.mean(real_false) + self.lambda_gp * grad_pen
                 loss_adv_d.backward()
                 self.adv_opt.step()
-                loss = sum(self.loss(output, target) - torch.mean(real_false))
+                loss = self.loss(output, target) - torch.mean(real_false)
             else:
-                loss = sum(self.loss(output, target))
+                loss = self.loss(output, target)
             # backward pass
             loss.backward()
             self.optimizer.step()
