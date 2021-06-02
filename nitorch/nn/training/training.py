@@ -1057,7 +1057,7 @@ class SegGANTrainer:
                 loss_d_seg.backward()
                 self.optim_d_seg.step()
 
-            if n_batch % self.gen_interval == 0:
+            if n_batch > 0 and n_batch % self.gen_interval == 0:
                 ## training translation generator
 
                 # source -> target
@@ -1128,7 +1128,7 @@ class SegGANTrainer:
                 loss_g.backward()
                 self.optimizer.step()
 
-            if n_batch % self.seg_interval == 0:
+            if n_batch > 0 and n_batch % self.seg_interval == 0:
                 ## training segmentation 'generator' via Dice
                 self.optimizer.zero_grad()
 
