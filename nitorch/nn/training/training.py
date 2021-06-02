@@ -967,7 +967,7 @@ class PreTrainer:
         with torch.no_grad():
             epoch_loss /= nb_batches
             self._print('train', epoch, nb_steps, nb_steps,
-                        epoch_loss last=True)
+                        epoch_loss, last=True)
             self._board('train', epoch)
             # tb callback
             if self.tensorboard:
