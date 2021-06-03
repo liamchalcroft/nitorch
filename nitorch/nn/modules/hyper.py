@@ -98,30 +98,42 @@ class HyperGroupNorm(tnn.Module):
 
     def forward(self, x, meta):
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        meta_batch = torch.split(meta.flatten(), self.meta_dim)
+        # meta_batch = torch.split(meta.flatten(), self.meta_dim)
         weight = []
         bias = []
 
         self.meta_act = self.meta_act.to(device)
         self.head_w = self.head_w.to(device)
         self.head_b = self.head_b.to(device)
+
+        x_out = []
         
-        for meta_ in meta_batch:
-            meta_ = meta_.to(device)
-            for block in self.blocks:
-                block = block.to(device)
-                meta_ = block(meta_)
-                meta_ = self.meta_act(meta_)
+        # performing each item in batch iteratively... should be faster way in parralel
+        for batch_iter in range(meta.shape[0]):
+            meta_batch = torch.split(meta[batch_iter].flatten(), self.meta_dim)
+            for meta_ in meta_batch:
+                meta_ = meta_.to(device)
+                for block in self.blocks:
+                    block = block.to(device)
+                    meta_ = block(meta_)
+                    meta_ = self.meta_act(meta_)
 
-            weight_= self.head_w(meta_)
-            bias_= self.head_b(meta_)
-            
-            weight.append(weight_)
-            bias.append(bias_)
+                weight_= self.head_w(meta_)
+                bias_= self.head_b(meta_)
+                
+                weight.append(weight_)
+                bias.append(bias_)
 
-        weight = torch.cat(weight)
-        bias = torch.cat(bias)
-        x = F.group_norm(x, len(meta_batch), weight=weight, bias=bias)
+            x_ = x[batch_iter]
+
+            weight = torch.cat(weight)
+            bias = torch.cat(bias)
+            x_ = F.group_norm(x, len(meta_batch), weight=weight, bias=bias)
+
+            x_out.append(x_)
+
+        x = torch.cat(x_out)
+        x = x.to(device)
         return x
 
 
