@@ -281,6 +281,7 @@ class HyperConv(tnn.Module):
         if padding == 'auto':
             padding = ((self.kernel_size-1)*self.dilation)//2
 
+        print('self.shape: {}'.format(self.shape))
         shape = self.shape
         print('input shape: {}'.format(shape))
         shape[0] *= np.prod(meta.shape[:2])
@@ -335,8 +336,6 @@ class HyperConv(tnn.Module):
 
         if self.activation:
             x = self.activation(x)
-
-        shape = self.shape
 
         return x
 
