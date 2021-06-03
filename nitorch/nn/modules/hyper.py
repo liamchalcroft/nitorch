@@ -118,6 +118,8 @@ class HyperGroupNorm(tnn.Module):
 
         x = F.group_norm(x, np.prod(meta.shape[:2]), weight=weight, bias=bias)
 
+        print(x.shape)
+
         x = x.view(*meta.shape[:2], *x.shape[2:])
 
         return x
