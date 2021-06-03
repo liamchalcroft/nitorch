@@ -98,7 +98,7 @@ class HyperGroupNorm(tnn.Module):
 
     def forward(self, x, meta):
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        meta_batch = torch.split(meta[0].flatten(), self.meta_dim)
+        meta_batch = torch.split(meta.flatten(), self.meta_dim)
         weight = []
         bias = []
 
@@ -121,7 +121,7 @@ class HyperGroupNorm(tnn.Module):
 
         weight = torch.cat(weight)
         bias = torch.cat(bias)
-        x = F.group_norm(x, len(meta), weight=weight, bias=bias)
+        x = F.group_norm(x, len(meta_batch), weight=weight, bias=bias)
         return x
 
 
@@ -269,7 +269,7 @@ class HyperConv(tnn.Module):
     def forward(self, x, meta):
 
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        meta_batch = torch.split(meta[0].flatten(), self.meta_dim)
+        meta_batch = torch.split(meta.flatten(), self.meta_dim)
         weight = []
         bias = []
 
@@ -499,7 +499,7 @@ class HyperConvTranspose(tnn.Module):
 
     def forward(self, x, meta):
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        meta_batch = torch.split(meta[0].flatten(), self.meta_dim)
+        meta_batch = torch.split(meta.flatten(), self.meta_dim)
         weight = []
         bias = []
 
