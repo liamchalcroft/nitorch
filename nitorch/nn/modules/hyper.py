@@ -118,8 +118,6 @@ class HyperGroupNorm(tnn.Module):
 
         x = F.group_norm(x, np.prod(meta.shape[:2]), weight=weight, bias=bias)
 
-        print(x.shape)
-
         x = x.view(meta.shape[0], -1, *x.shape[2:])
 
         return x
@@ -297,6 +295,7 @@ class HyperConv(tnn.Module):
             weight = torch.mean(weight, dim=1)
             shape[0] //= meta.shape[1]
             
+        print(shape)
         weight = weight.view(shape)
 
         if self.bias:
