@@ -120,7 +120,7 @@ class HyperGroupNorm(tnn.Module):
 
         print(x.shape)
 
-        x = x.view(*meta.shape[:2], *x.shape[2:])
+        x = x.view(meta.shape[0], -1, *x.shape[2:])
 
         return x
 
