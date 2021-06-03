@@ -98,9 +98,6 @@ class HyperGroupNorm(tnn.Module):
 
     def forward(self, x, meta):
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        # meta_batch = torch.split(meta.flatten(), self.meta_dim)
-        weight = []
-        bias = []
 
         self.meta_act = self.meta_act.to(device)
         self.head_w = self.head_w.to(device)
@@ -110,6 +107,8 @@ class HyperGroupNorm(tnn.Module):
         
         # performing each item in batch iteratively... should be faster way in parralel
         for batch_iter in range(meta.shape[0]):
+            weight = []
+            bias = []
             meta_batch = torch.split(meta[batch_iter].flatten(), self.meta_dim)
             for meta_ in meta_batch:
                 meta_ = meta_.to(device)
