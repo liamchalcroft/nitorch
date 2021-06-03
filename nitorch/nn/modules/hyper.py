@@ -326,7 +326,7 @@ class HyperConv(tnn.Module):
             weight = torch.cat(weight, dim=1)
             weight = weight.to(device)
 
-            x_ = x[batch_iter]
+            x_ = torch.unsqueeze(x[batch_iter], dim=0)
 
             if self.dim == 2:
                 if self.grouppool==True:
