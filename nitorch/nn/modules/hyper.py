@@ -5,7 +5,7 @@ Bayes-by-Hypernets, continual learning.
 
 import torch
 from torch import nn as tnn
-import torch.nn.functional as F
+import F as F
 import numpy as np
 from .base import nitorchmodule
 from nitorch.core.py import make_list, make_tuple
@@ -97,42 +97,29 @@ class HyperGroupNorm(tnn.Module):
         self.head_b = tnn.Linear(16*(2**meta_depth), in_channels)
 
     def forward(self, x, meta):
-        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        device = x.device
 
         self.meta_act = self.meta_act.to(device)
         self.head_w = self.head_w.to(device)
         self.head_b = self.head_b.to(device)
 
-        x_out = []
-        
-        # performing each item in batch iteratively... should be faster way in parralel
-        for batch_iter in range(meta.shape[0]):
-            weight = []
-            bias = []
-            meta_batch = torch.split(meta[batch_iter].flatten(), self.meta_dim)
-            for meta_ in meta_batch:
-                meta_ = meta_.to(device)
-                for block in self.blocks:
-                    block = block.to(device)
-                    meta_ = block(meta_)
-                    meta_ = self.meta_act(meta_)
+        for block in self.blocks:
+            block = block.to(device)
+            meta = block(meta)
+            meta = self.meta_act(meta)
 
-                weight_= self.head_w(meta_)
-                bias_= self.head_b(meta_)
-                
-                weight.append(weight_)
-                bias.append(bias_)
+        weight = self.head_w(meta)
+        bias = self.head_b(meta)
 
-            x_ = x[batch_iter]
+        weight = weight.view(-1)
+        bias = bias.view(-1)
 
-            weight = torch.cat(weight)
-            bias = torch.cat(bias)
-            x_ = F.group_norm(x, len(meta_batch), weight=weight, bias=bias)
+        x = x.view(1, -1, *x.shape[2:])
 
-            x_out.append(x_)
+        x = F.group_norm(x, np.prod(meta.shape[:2]), weight=weight, bias=bias)
 
-        x = torch.cat(x_out)
-        x = x.to(device)
+        x = x.view(*meta.shape[:2], *x.shape[2:])
+
         return x
 
 
@@ -279,10 +266,7 @@ class HyperConv(tnn.Module):
 
     def forward(self, x, meta):
 
-        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        meta_batch = torch.split(meta.flatten(), self.meta_dim)
-        weight = []
-        bias = []
+        device = x.device
 
         self.meta_act = self.meta_act.to(device)
         self.head_w = self.head_w.to(device)
@@ -297,148 +281,50 @@ class HyperConv(tnn.Module):
         if padding == 'auto':
             padding = ((self.kernel_size-1)*self.dilation)//2
 
-        x_out = []
+        shape = self.shape
+        shape[0] *= np.prod(meta.shape[:2])
         
-        # performing each item in batch iteratively... should be faster way in parralel
-        for batch_iter in range(meta.shape[0]):
-            weight = []
-            bias = []
-            meta_batch = torch.split(meta[batch_iter].flatten(), self.meta_dim)
-            for meta_ in meta_batch:
-                meta_ = meta_.to(device)
-                for block in self.blocks:
-                    block = block.to(device)
-                    meta_ = block(meta_)
-                    meta_ = self.meta_act(meta_)
-                
-                weight_flat = self.head_w(meta_)
-                weight_ = weight_flat.reshape(self.shape)
-                weight.append(weight_)
+        for block in self.blocks:
+            block = block.to(device)
+            meta = block(meta)
+            meta = self.meta_act(meta)
 
-                if self.bias:
-                    bias_= self.head_b(meta_)
-                    bias.append(bias_)
+        weight = self.head_w(meta)
 
-            if self.bias:
-                bias = torch.stack(bias)
-                bias = bias.to(device)
+        if self.grouppool==True:
+            weight = torch.mean(weight, dim=1)
+            shape[0] //= meta.shape[1]
+            
+        weight = weight.view(shape)
 
-            weight = torch.cat(weight, dim=1)
-            weight = weight.to(device)
+        if self.bias:
+            bias = self.head_b(meta)
+            if self.grouppool==True:
+                bias = torch.mean(bias, dim=1)
+            bias = bias.view(-1)
+            bias = bias.to(device)
 
-            x_ = torch.unsqueeze(x[batch_iter], dim=0)
+        weight = weight.to(device)
 
-            if self.dim == 2:
-                if self.grouppool==True:
-                    if self.bias:
-                        bias = torch.mean(bias, dim=0)
-                    x_ = F.conv2d(x_, weight, bias, 
-                    stride=self.stride, padding=padding)
-                else:
-                    grp = len(meta_batch)
-                    weight_grp = torch.chunk(weight, grp, dim=1)
-                    x_grp = torch.chunk(x_, grp, dim=1)
-                    if self.bias:
-                        bias = bias.flatten()
-                        bias_grp = torch.chunk(bias, grp)
-                    else:
-                        bias_grp = [None] * len(x_grp)
-                    x_grp = [F.conv2d(x_grp[i].to(device), weight_grp[i].to(device), bias_grp[i], 
-                    stride=self.stride, padding=padding) for i in range(len(x_grp))]
-                    x_ = torch.cat(x_grp, dim=1).to(device)
-            elif self.dim == 3:
-                if self.grouppool==True:
-                    if self.bias:
-                        bias = torch.mean(bias, dim=0)
-                    x_ = F.conv3d(x_, weight, bias, 
-                    stride=self.stride, padding=padding).to(device)
-                else:    
-                    grp = len(meta_batch)
-                    weight_grp = torch.chunk(weight, grp, dim=1)
-                    x_grp = torch.chunk(x_, grp, dim=1)
-                    if self.bias:
-                        bias = bias.flatten()
-                        bias_grp = torch.chunk(bias, grp)
-                    else:
-                        bias_grp = [None] * len(x_grp)
-                    x_grp = [F.conv3d(x_grp[i].to(device), weight_grp[i].to(device), bias_grp[i], 
-                    stride=self.stride, padding=padding) for i in range(len(x_grp))]
-                    x_ = torch.cat(x_grp, dim=1).to(device)
+        x = x.view(1, -1, *x.shape[2:])
 
-            x_out.append(x_)
+        if self.dim == 2:
+            if self.grouppool==True:
+                x = F.conv2d(x, weight, bias, 
+                stride=self.stride, padding=padding, groups=np.prod(meta.shape[:2]))
+            else:
+                x = F.conv2d(x, weight, bias, 
+                stride=self.stride, padding=padding, groups=np.prod(meta.shape[:2]))
 
-        x = torch.cat(x_out)
-        x = x.to(device)
-        
-        # for meta_ in meta_batch:
-        #     meta_ = meta_.to(device)
-        #     for block in self.blocks:
-        #         block = block.to(device)
-        #         meta_ = block(meta_)
-        #         meta_ = self.meta_act(meta_)
+        elif self.dim == 3:
+            if self.grouppool==True:
+                x = F.conv3d(x, weight, bias, 
+                stride=self.stride, padding=padding, groups=np.prod(meta.shape[:2]))
+            else:    
+                x = F.conv3d(x, weight, bias, 
+                stride=self.stride, padding=padding, groups=np.prod(meta.shape[:2]))
 
-        #     weight_flat = self.head_w(meta_)
-        #     weight_ = weight_flat.reshape(self.shape)
-        #     weight.append(weight_)
-
-        #     if self.bias:
-        #         bias_ = self.head_b(meta_)
-        #         bias.append(bias_)
-
-        # if self.bias:
-        #     bias = torch.stack(bias)
-        #     bias = bias.to(device)
-
-        # weight = torch.cat(weight, dim=1)
-        # weight = weight.to(device)
-
-        # if self.batch_norm:
-        #     x = self.batch_norm(x, meta)
-
-        # padding = self.padding
-
-        # if padding == 'auto':
-        #     padding = ((self.kernel_size-1)*self.dilation)//2
-
-        # # Standard 'groups' wont work here... Need to manually apply separate convolutions.
-        # # Apply by splitting weights and input, and concatenating after convolution
-        # # can look at also using e.g. channelshuffle, stitch to switch between fully separate and interconnected
-        # if self.dim == 2:
-        #     if self.grouppool==True:
-        #         if self.bias:
-        #             bias = torch.mean(bias, dim=0)
-        #         x = F.conv2d(x, weight, bias, 
-        #         stride=self.stride, padding=padding)
-        #     else:
-        #         grp = len(meta_batch)
-        #         weight_grp = torch.chunk(weight, grp, dim=1)
-        #         x_grp = torch.chunk(x, grp, dim=1)
-        #         if self.bias:
-        #             bias = bias.flatten()
-        #             bias_grp = torch.chunk(bias, grp)
-        #         else:
-        #             bias_grp = [None] * len(x_grp)
-        #         x_grp = [F.conv2d(x_grp[i].to(device), weight_grp[i].to(device), bias_grp[i], 
-        #         stride=self.stride, padding=padding) for i in range(len(x_grp))]
-        #         x = torch.cat(x_grp, dim=1).to(device)
-        # elif self.dim == 3:
-        #     if self.grouppool==True:
-        #         if self.bias:
-        #             bias = torch.mean(bias, dim=0)
-        #         x = F.conv3d(x, weight, bias, 
-        #         stride=self.stride, padding=padding).to(device)
-        #     else:    
-        #         grp = len(meta_batch)
-        #         weight_grp = torch.chunk(weight, grp, dim=1)
-        #         x_grp = torch.chunk(x, grp, dim=1)
-        #         if self.bias:
-        #             bias = bias.flatten()
-        #             bias_grp = torch.chunk(bias, grp)
-        #         else:
-        #             bias_grp = [None] * len(x_grp)
-        #         x_grp = [F.conv3d(x_grp[i].to(device), weight_grp[i].to(device), bias_grp[i], 
-        #         stride=self.stride, padding=padding) for i in range(len(x_grp))]
-        #         x = torch.cat(x_grp, dim=1).to(device)
+        x = x.view(meta.shape[0], -1, *x.shape[2:])
 
         # perform post-padding
         if self.output_padding:
