@@ -5,7 +5,7 @@ Bayes-by-Hypernets, continual learning.
 
 import torch
 from torch import nn as tnn
-import F as F
+import torch.nn.functional as F
 import numpy as np
 from .base import nitorchmodule
 from nitorch.core.py import make_list, make_tuple
