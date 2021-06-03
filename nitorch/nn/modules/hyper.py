@@ -281,11 +281,8 @@ class HyperConv(tnn.Module):
         if padding == 'auto':
             padding = ((self.kernel_size-1)*self.dilation)//2
 
-        print('self.shape: {}'.format(self.shape))
         shape = self.shape.copy()
-        print('input shape: {}'.format(shape))
         shape[0] *= np.prod(meta.shape[:2])
-        print('output shape 1: {}'.format(shape))
         
         for block in self.blocks:
             block = block.to(device)
@@ -298,7 +295,6 @@ class HyperConv(tnn.Module):
             weight = torch.mean(weight, dim=1)
             shape[0] //= meta.shape[1]
             
-        print('final output shape: {}'.format(shape))
         weight = weight.view(shape)
 
         if self.bias:
