@@ -282,7 +282,7 @@ class HyperConv(tnn.Module):
             padding = ((self.kernel_size-1)*self.dilation)//2
 
         print('self.shape: {}'.format(self.shape))
-        shape = self.shape.clone()
+        shape = self.shape.copy()
         print('input shape: {}'.format(shape))
         shape[0] *= np.prod(meta.shape[:2])
         print('output shape 1: {}'.format(shape))
