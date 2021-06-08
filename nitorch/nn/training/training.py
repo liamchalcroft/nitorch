@@ -1548,6 +1548,10 @@ class SegGANTrainer:
         nb_batches = 0
         ### TODO: add proper data-logging
         for n_batch, batch in enumerate(train_set):
+            nb_d_gan = 0.
+            nb_d_seg = 0.
+            nb_gan = 0.
+            nb_seg = 0.
             losses = {}
             metrics = {}
             loss_d_gan = 0.
@@ -1621,6 +1625,8 @@ class SegGANTrainer:
             loss_d_gan.backward()
             self.optim_d_gan.step()
 
+            nb_d_gan += 1.
+
             if epoch > self.adv_seg_start:
                 ## training segmentation discriminator
 
@@ -1656,6 +1662,8 @@ class SegGANTrainer:
 
                 loss_d_seg.backward()
                 self.optim_d_seg.step()
+
+                nb_d_seg += 1.
 
             if n_batch > 0 and n_batch % self.gen_interval == 0:
                 ## training translation generator
@@ -1728,6 +1736,8 @@ class SegGANTrainer:
                 loss_g.backward()
                 self.optimizer.step()
 
+                nb_gan += 1.
+
             if n_batch > 0 and n_batch % self.seg_interval == 0:
                 ## training segmentation 'generator' via Dice
                 self.optimizer.zero_grad()
@@ -1797,6 +1807,8 @@ class SegGANTrainer:
 
                 loss_seg.backward()
                 self.optimizer.step()
+
+                nb_seg += 1.
             # update average across batches
             with torch.no_grad():
                 weight = float(batch_s[0].shape[0])
@@ -1825,10 +1837,14 @@ class SegGANTrainer:
                     del tbopt
         # print summary
         with torch.no_grad():
-            epoch_loss_d_gan /= nb_batches
-            epoch_loss_d_seg /= nb_batches
-            epoch_loss_g /= nb_batches
-            epoch_loss_seg /= nb_batches
+            if nb_d_gan > 0:
+                epoch_loss_d_gan /= nb_d_gan
+            if nb_d_seg > 0:
+                epoch_loss_d_seg /= nb_d_seg
+            if nb_gan > 0:
+                epoch_loss_g /= nb_gan
+            if nb_seg > 0:
+                epoch_loss_seg /= nb_seg
 
             epoch_loss = epoch_loss_d_gan + epoch_loss_d_seg + epoch_loss_g + epoch_loss_seg
 
