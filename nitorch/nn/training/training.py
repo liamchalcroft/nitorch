@@ -1779,7 +1779,7 @@ class SegGANTrainer:
 
                     # calculate overall loss
                     loss_seg = loss_seg_sup + self.lambda_seg_synth * loss_seg_synth + \
-                        self.lambda_seg_adv * loss_seg_adv + self.lambda_seg_domain * loss_seg_domain
+                        self.lambda_seg_adv * loss_seg_adv + self.lambda_seg_domain * loss_seg_dom
 
                     losses['loss_seg_sup'] = loss_seg_sup
                     losses['loss_seg_synth'] = loss_seg_synth
