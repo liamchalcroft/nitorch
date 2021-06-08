@@ -1784,7 +1784,7 @@ class SegGANTrainer:
                     losses['loss_seg_sup'] = loss_seg_sup
                     losses['loss_seg_synth'] = loss_seg_synth
                     losses['loss_seg_adv'] = loss_seg_adv
-                    losses['loss_seg_domain'] = loss_seg_domain
+                    losses['loss_seg_domain'] = loss_seg_dom
 
                 else:
 
