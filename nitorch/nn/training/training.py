@@ -1599,7 +1599,8 @@ class SegGANTrainer:
             loss_adv_d = -torch.mean(real_valid) + torch.mean(fake_valid) + self.lambda_gp * grad_pen
 
             # domain
-            loss_dom_d = self.domain_loss(real_class, torch.max(batch_s_met, 1)[1])
+            print(real_class.shape)
+            loss_dom_d = self.domain_loss(real_class.view(-1, real_class.shape[-1]), torch.max(batch_s_met, 1)[1].view(-1))
 
             # repeat for target -> source
             trans_s_img = self.model(image=batch_t_img, meta=batch_t_met,
