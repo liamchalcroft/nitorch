@@ -1599,7 +1599,6 @@ class SegGANTrainer:
             loss_adv_d = -torch.mean(real_valid) + torch.mean(fake_valid) + self.lambda_gp * grad_pen
 
             # domain
-            print(real_class.view(-1, real_class.shape[-1]).shape, torch.max(batch_s_met, -1)[1].view(-1).shape)
             loss_dom_d = self.domain_loss(real_class.view(-1, real_class.shape[-1]), torch.max(batch_s_met, -1)[1].view(-1))
 
             # repeat for target -> source
@@ -1610,7 +1609,7 @@ class SegGANTrainer:
             fake_valid, _ = self.disc_gan(trans_s_img)
             grad_pen = self.wass_gp(self.disc_gan, batch_s_img, trans_t_img)
             loss_adv_d += -torch.mean(real_valid) + torch.mean(fake_valid) + self.lambda_gp * grad_pen
-            loss_dom_d += self.domain_loss(real_class, torch.max(batch_t_met, 1)[1])
+            loss_dom_d += self.domain_loss(real_class.view(-1, real_class.shape[-1]), torch.max(batch_t_met, -1)[1].view(-1))
 
             # calculate overall loss
             loss_d_gan = loss_adv_d + self.lambda_domain * loss_dom_d
@@ -1644,10 +1643,9 @@ class SegGANTrainer:
                 loss_adv_d = -torch.mean(gt_valid) + \
                     0.5 * (torch.mean(s_valid) + torch.mean(t_valid)) + \
                         self.lambda_gp * grad_pen
-
                 # domain
-                loss_dom_d = 0.5 * (self.domain_loss(s_class, torch.max(batch_s_met, 1)[1]) + \
-                    self.domain_loss(t_class, torch.max(batch_t_met, 1)[1]))
+                loss_dom_d = 0.5 * (self.domain_loss(s_class.view(-1, s_class.shape[-1]), torch.max(batch_s_met, -1)[1].view(-1)) + \
+                    self.domain_loss(t_class.view(-1, t_class.shape[-1]), torch.max(batch_t_met, -1)[1].view(-1)))
 
                 # calculate overall loss
                 loss_d_seg = loss_adv_d + self.lambda_domain * loss_dom_d
@@ -1671,7 +1669,7 @@ class SegGANTrainer:
 
                 loss_g_adv = - torch.mean(fake_valid)
 
-                loss_g_dom = self.domain_loss(fake_class, torch.max(batch_t_met, 1)[1])
+                loss_g_dom = self.domain_loss(fake_class.view(-1, fake_class.shape[-1]), torch.max(batch_t_met, -1)[1].view(-1))
 
                 # target -> source
                 t_s_img = self.model(image=batch_s_img, meta=batch_s_met,
@@ -1682,7 +1680,7 @@ class SegGANTrainer:
 
                 loss_g_adv += - torch.mean(fake_valid)
 
-                loss_g_dom += self.domain_loss(fake_class, torch.max(batch_s_met, 1)[1])
+                loss_g_dom += self.domain_loss(fake_class.view(-1, fake_class.shape[-1]), torch.max(batch_s_met, -1)[1].view(-1))
 
                 # source -> target -> source
 
@@ -1776,10 +1774,10 @@ class SegGANTrainer:
                     loss_seg_adv += -torch.mean(t_s_valid)
 
                     # domain
-                    loss_seg_dom = self.domain_loss(s_class, torch.max(batch_s_met, 1)[1])
-                    loss_seg_dom += self.domain_loss(t_class, torch.max(batch_t_met, 1)[1])
-                    loss_seg_dom += self.domain_loss(s_t_class, torch.max(batch_t_met, 1)[1])
-                    loss_seg_dom += self.domain_loss(t_s_class, torch.max(batch_s_met, 1)[1])
+                    loss_seg_dom = self.domain_loss(s_class.view(-1, s_class.shape[-1]), torch.max(batch_s_met, -1)[1].view(-1))
+                    loss_seg_dom += self.domain_loss(t_class.view(-1, t_class.shape[-1]), torch.max(batch_t_met, -1)[1].view(-1))
+                    loss_seg_dom += self.domain_loss(s_t_class.view(-1, s_t_class.shape[-1]), torch.max(batch_t_met, -1)[1].view(-1))
+                    loss_seg_dom += self.domain_loss(t_s_class.view(-1, t_s_class.shape[-1]), torch.max(batch_s_met, -1)[1].view(-1))
 
                 if n_batch // self.seg_interval > self.adv_seg_start:
 
