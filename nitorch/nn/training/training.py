@@ -1825,8 +1825,13 @@ class SegGANTrainer:
                     del tbopt
         # print summary
         with torch.no_grad():
+            epoch_loss_d_gan /= nb_batches
+            epoch_loss_d_seg /= nb_batches
+            epoch_loss_g /= nb_batches
+            epoch_loss_seg /= nb_batches
+
             epoch_loss = epoch_loss_d_gan + epoch_loss_d_seg + epoch_loss_g + epoch_loss_seg
-            epoch_loss /= nb_batches
+
             normalize_loss_dict(epoch_losses, nb_batches)
             normalize_loss_dict(epoch_metrics, nb_batches)
             self._print('train', epoch, nb_steps, nb_steps,
