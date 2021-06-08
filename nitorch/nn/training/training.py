@@ -1621,7 +1621,7 @@ class SegGANTrainer:
             loss_d_gan.backward()
             self.optim_d_gan.step()
 
-            if n_batch // self.seg_interval > self.adv_seg_start:
+            if epoch > self.adv_seg_start:
                 ## training segmentation discriminator
 
                 # segment images
@@ -1632,8 +1632,8 @@ class SegGANTrainer:
 
                 # test discriminator on segmentation
                 gt_valid, _ = self.disc_seg(batch_s_ref)
-                s_valid, s_class = self.disc_gan(s_seg)
-                t_valid, t_class = self.disc_gan(t_seg)
+                s_valid, s_class = self.disc_seg(s_seg)
+                t_valid, t_class = self.disc_seg(t_seg)
 
                 # calculate wasserstein gradient penalty
                 grad_pen = 0.5 * (self.wass_gp(self.disc_seg, batch_s_ref, s_seg) + \
@@ -1756,16 +1756,16 @@ class SegGANTrainer:
                 # supervised learning of source -> label
                 loss_seg_sup = self.seg_loss(s_seg, batch_s_ref)
 
-                if n_batch // self.seg_interval > self.adv_seg_start:
+                if epoch > self.adv_seg_start:
 
                     # supervised learning of source -> target -> label
                     loss_seg_synth = self.seg_loss(s_t_seg, batch_s_ref)
 
                     # test discriminator on segmentation
-                    s_valid, s_class = self.disc_gan(s_seg)
-                    t_valid, t_class = self.disc_gan(t_seg)
-                    s_t_valid, s_t_class = self.disc_gan(s_t_seg)
-                    t_s_valid, t_s_class = self.disc_gan(t_s_seg)
+                    s_valid, s_class = self.disc_seg(s_seg)
+                    t_valid, t_class = self.disc_seg(t_seg)
+                    s_t_valid, s_t_class = self.disc_seg(s_t_seg)
+                    t_s_valid, t_s_class = self.disc_seg(t_s_seg)
 
                     # adversarial
                     loss_seg_adv = -torch.mean(s_valid)
@@ -1778,8 +1778,6 @@ class SegGANTrainer:
                     loss_seg_dom += self.domain_loss(t_class.view(-1, t_class.shape[-1]), torch.max(batch_t_met, -1)[1].view(-1))
                     loss_seg_dom += self.domain_loss(s_t_class.view(-1, s_t_class.shape[-1]), torch.max(batch_t_met, -1)[1].view(-1))
                     loss_seg_dom += self.domain_loss(t_s_class.view(-1, t_s_class.shape[-1]), torch.max(batch_s_met, -1)[1].view(-1))
-
-                if n_batch // self.seg_interval > self.adv_seg_start:
 
                     # calculate overall loss
                     loss_seg = loss_seg_sup + self.lambda_seg_synth * loss_seg_synth + \
