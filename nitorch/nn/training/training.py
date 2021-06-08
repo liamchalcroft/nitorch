@@ -1843,7 +1843,7 @@ class SegGANTrainer:
                 self.model.board(self.tensorboard, **tbopt)
                 for func in self._tensorboard_callbacks['train']['epoch']:
                     func(self.tensorboard, **tbopt)
-
+        print('D_G loss: {}\nD_S loss: {}\nG loss: {}\nS loss: {}'.format(epoch_loss_d_gan, epoch_loss_d_seg, epoch_loss_g, epoch_loss_seg))
         return epoch_loss
 
     def _train_seg(self, epoch=0):
