@@ -1360,7 +1360,7 @@ class SegGANTrainer:
             Print values of individual metrics
         """
         self.model = model
-        if isinstance(disc, (list, tuple))
+        if isinstance(disc, (list, tuple)):
             if len(disc) == 2:
                 self.disc_gan, self.disc_seg = disc
             else:
