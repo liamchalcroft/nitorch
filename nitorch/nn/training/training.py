@@ -1753,7 +1753,7 @@ class SegGANTrainer:
                 # supervised learning of source -> target -> label
                 loss_seg_synth = self.seg_loss(s_t_seg, batch_s_ref)
 
-                if epoch > self.adv_seg_start:
+                if self.disc_seg and epoch > self.adv_seg_start:
 
                     t_seg = self.model(image=batch_t_img, meta=batch_t_met,
                                         seg=True, gan=False)
