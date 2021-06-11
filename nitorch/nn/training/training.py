@@ -1751,6 +1751,10 @@ class SegGANTrainer:
                 # supervised learning of source -> label
                 loss_seg_sup = self.seg_loss(s_seg, batch_s_ref)
 
+                s_t_img = self.model(image=batch_s_img, meta=batch_s_met,
+                                        seg=False, gan=True, 
+                                        gan_meta=batch_t_met)
+
                 s_t_seg = self.model(image=s_t_img, meta=batch_t_met,
                                         seg=True, gan=False)
 
@@ -1762,13 +1766,10 @@ class SegGANTrainer:
                     t_seg = self.model(image=batch_t_img, meta=batch_t_met,
                                         seg=True, gan=False)
 
-                    s_t_img = self.model(image=batch_s_img, meta=batch_s_met,
-                                        seg=False, gan=True, 
-                                        gan_meta=batch_t_met)
-
                     t_s_img = self.model(image=batch_t_img, meta=batch_t_met,
                                         seg=False, gan=True, 
                                         gan_meta=batch_s_met)
+
                     t_s_seg = self.model(image=t_s_img, meta=batch_t_met,
                                         seg=True, gan=False)
 
