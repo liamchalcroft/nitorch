@@ -1740,7 +1740,7 @@ class SegGANTrainer:
 
                 nb_gan += 1.
 
-            if self.disc_seg and n_batch > 0 and n_batch % self.seg_interval == 0:
+            if n_batch % self.seg_interval == 0:
                 ## training segmentation 'generator' via Dice
                 self.optimizer.zero_grad()
 
