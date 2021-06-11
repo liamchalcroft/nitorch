@@ -1365,8 +1365,10 @@ class SegGANTrainer:
                 self.disc_gan, self.disc_seg = disc
             else:
                 self.disc_gan = disc[0]
+                self.disc_seg = None
         else:
             self.disc_gan = disc
+            self.disc_seg = None
 
         self.train_set = train_set
         self.eval_set = eval_set
