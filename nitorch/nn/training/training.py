@@ -1550,12 +1550,12 @@ class SegGANTrainer:
         epoch_losses = {}
         epoch_metrics = {}
         nb_batches = 0
+        nb_d_gan = 0.
+        nb_d_seg = 0.
+        nb_gan = 0.
+        nb_seg = 0.
         ### TODO: add proper data-logging
         for n_batch, batch in enumerate(train_set):
-            nb_d_gan = 0.
-            nb_d_seg = 0.
-            nb_gan = 0.
-            nb_seg = 0.
             losses = {}
             metrics = {}
             loss_d_gan = 0.
