@@ -1842,6 +1842,7 @@ class SegGANTrainer:
                     del tbopt
         # print summary
         with torch.no_grad():
+            print(nb_d_gan, nb_d_seg, nb_gan, nb_seg)
             if nb_d_gan > 0:
                 epoch_loss_d_gan /= nb_d_gan
             if nb_d_seg > 0:
