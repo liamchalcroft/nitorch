@@ -1360,22 +1360,22 @@ class SegGANTrainer:
             Print values of individual metrics
         """
         self.model = model
-        if len(disc) == 2:
-            self.disc_gan, self.disc_seg = disc
-            self.disc = None
+        if isinstance(disc, (list, tuple))
+            if len(disc) == 2:
+                self.disc_gan, self.disc_seg = disc
+            else:
+                self.disc_gan = disc[0]
         else:
-            self.disc = disc
+            self.disc_gan = disc
 
         self.train_set = train_set
         self.eval_set = eval_set
         if optimizer is None:
-            optimizer = torch.optim.Adam(model.parameters(), lr=0.0002, betas=(0.5,0.999))
-            if self.disc:
-                self.optim_d = torch.optim.Adam(self.disc.parameters(), lr=0.0002, betas=(0.5,0.999))
-            elif self.disc_gan and self.disc_seg:
-                self.optim_d = None
-                self.optim_d_gan = torch.optim.Adam(self.disc_gan.parameters(), lr=0.0002, betas=(0.5,0.999))
-                self.optim_d_seg = torch.optim.Adam(self.disc_seg.parameters(), lr=0.0002, betas=(0.5,0.999))
+            optimizer = torch.optim.Adam(model.parameters(), lr=0.0001, betas=(0.5,0.999))
+            if self.disc_gan:
+                self.optim_d_gan = torch.optim.Adam(self.disc_gan.parameters(), lr=0.0001, betas=(0.5,0.999))
+            elif self.disc_seg:
+                self.optim_d_seg = torch.optim.Adam(self.disc_seg.parameters(), lr=0.0001, betas=(0.5,0.999))
         self.optimizer = optimizer
         self.lambda_gp = lambda_gp
         self.lambda_domain = lambda_domain
@@ -1578,8 +1578,6 @@ class SegGANTrainer:
             batch_t_img, batch_t_met = batch_t
 
             self.optimizer.zero_grad()
-            if self.optim_d:
-                self.optim_d.zero_grad()
             if self.optim_d_gan:
                 self.optim_d_gan.zero_grad()
             if self.optim_d_seg:
@@ -1627,7 +1625,7 @@ class SegGANTrainer:
 
             nb_d_gan += 1.
 
-            if epoch > self.adv_seg_start:
+            if self.disc_seg and epoch > self.adv_seg_start:
                 ## training segmentation discriminator
 
                 # segment images
@@ -1738,7 +1736,7 @@ class SegGANTrainer:
 
                 nb_gan += 1.
 
-            if n_batch > 0 and n_batch % self.seg_interval == 0:
+            if self.disc_seg and n_batch > 0 and n_batch % self.seg_interval == 0:
                 ## training segmentation 'generator' via Dice
                 self.optimizer.zero_grad()
 
@@ -1749,6 +1747,12 @@ class SegGANTrainer:
                 # supervised learning of source -> label
                 loss_seg_sup = self.seg_loss(s_seg, batch_s_ref)
 
+                s_t_seg = self.model(image=s_t_img, meta=batch_t_met,
+                                        seg=True, gan=False)
+
+                # supervised learning of source -> target -> label
+                loss_seg_synth = self.seg_loss(s_t_seg, batch_s_ref)
+
                 if epoch > self.adv_seg_start:
 
                     t_seg = self.model(image=batch_t_img, meta=batch_t_met,
@@ -1757,17 +1761,12 @@ class SegGANTrainer:
                     s_t_img = self.model(image=batch_s_img, meta=batch_s_met,
                                         seg=False, gan=True, 
                                         gan_meta=batch_t_met)
-                    s_t_seg = self.model(image=s_t_img, meta=batch_t_met,
-                                        seg=True, gan=False)
 
                     t_s_img = self.model(image=batch_t_img, meta=batch_t_met,
                                         seg=False, gan=True, 
                                         gan_meta=batch_s_met)
                     t_s_seg = self.model(image=t_s_img, meta=batch_t_met,
                                         seg=True, gan=False)
-
-                    # supervised learning of source -> target -> label
-                    loss_seg_synth = self.seg_loss(s_t_seg, batch_s_ref)
 
                     # test discriminator on segmentation
                     s_valid, s_class = self.disc_seg(s_seg)
@@ -1799,9 +1798,10 @@ class SegGANTrainer:
                 else:
 
                     # only use T1 segmentation loss
-                    loss_seg = loss_seg_sup
+                    loss_seg = loss_seg_sup + self.lambda_seg_synth * loss_seg_synth
 
                     losses['loss_seg_sup'] = loss_seg_sup
+                    losses['loss_seg_synth'] = loss_seg_synth
 
                 losses['loss_seg'] = loss_seg
 
@@ -1861,7 +1861,7 @@ class SegGANTrainer:
                 for func in self._tensorboard_callbacks['train']['epoch']:
                     func(self.tensorboard, **tbopt)
         print('D_G loss: {}\nD_S loss: {}\nG loss: {}\nS loss: {}'.format(epoch_loss_d_gan, epoch_loss_d_seg, epoch_loss_g, epoch_loss_seg))
-        return epoch_loss
+        return epoch_loss, epoch_losses
 
     def _train_seg(self, epoch=0):
         """Train segmentation for one epoch"""
