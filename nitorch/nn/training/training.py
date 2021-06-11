@@ -1372,9 +1372,11 @@ class SegGANTrainer:
         self.eval_set = eval_set
         if optimizer is None:
             optimizer = torch.optim.Adam(model.parameters(), lr=0.0001, betas=(0.5,0.999))
+            self.optim_d_gan = None
+            self.optim_d_seg = None
             if self.disc_gan:
                 self.optim_d_gan = torch.optim.Adam(self.disc_gan.parameters(), lr=0.0001, betas=(0.5,0.999))
-            elif self.disc_seg:
+            if self.disc_seg:
                 self.optim_d_seg = torch.optim.Adam(self.disc_seg.parameters(), lr=0.0001, betas=(0.5,0.999))
         self.optimizer = optimizer
         self.lambda_gp = lambda_gp
