@@ -1,6 +1,7 @@
 """Tools to ease model training (like torch.ignite)"""
 
 import torch
+import torch.nn.functional as F
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from nitorch.core.utils import benchmark, fold, unfold, rubiks_shuffle
 from nitorch.core.py import make_tuple
@@ -1268,9 +1269,11 @@ class SegGANTrainer:
                  seg_loss=DiceLoss(log=False, implicit=False),
                  domain_loss=torch.nn.CrossEntropyLoss(),
                  cycle_loss=torch.nn.L1Loss(),
-                 gen_interval=5,
+                 gen_interval=1,
                  seg_interval=20,
                  adv_seg_start=5,
+                 softplus=True,
+                 r1=True,
                  nb_epoch=100,
                  nb_steps=None,
                  *, # the remaining parameters *must be* keywords
@@ -1377,9 +1380,9 @@ class SegGANTrainer:
             self.optim_d_gan = None
             self.optim_d_seg = None
             if self.disc_gan:
-                self.optim_d_gan = torch.optim.Adam(self.disc_gan.parameters(), lr=0.0001, betas=(0.5,0.999))
+                self.optim_d_gan = torch.optim.Adam(self.disc_gan.parameters(), lr=0.00005, betas=(0.5,0.999))
             if self.disc_seg:
-                self.optim_d_seg = torch.optim.Adam(self.disc_seg.parameters(), lr=0.0001, betas=(0.5,0.999))
+                self.optim_d_seg = torch.optim.Adam(self.disc_seg.parameters(), lr=0.00005, betas=(0.5,0.999))
         self.optimizer = optimizer
         self.lambda_gp = lambda_gp
         self.lambda_domain = lambda_domain
@@ -1394,6 +1397,8 @@ class SegGANTrainer:
         self.gen_interval = gen_interval
         self.seg_interval = seg_interval
         self.adv_seg_start = adv_seg_start
+        self.softplus = softplus
+        self.r1 = r1
         self.log_interval = log_interval
         self.benchmark = benchmark
         self.seed = seed
@@ -1530,6 +1535,17 @@ class SegGANTrainer:
         gp = gp.mean()
         return gp
 
+    def r1_reg(d_out, x_in):
+        # zero-centered gradient penalty for real images
+        batch_size = x_in.size(0)
+        grad_dout = torch.autograd.grad(
+            outputs=d_out.sum(), inputs=x_in,
+            create_graph=True, retain_graph=True, only_inputs=True)[0]
+        grad_dout2 = grad_dout.pow(2)
+        assert (grad_dout2.size() == x_in.size())
+        reg = 0.5 * grad_dout2.view(batch_size, -1).sum(1).mean(0)
+        return reg
+
     def _train_gan(self, epoch=0):
         """Train GAN for one epoch"""
         # TODO: Look at implementing FID metric for val
@@ -1598,11 +1614,17 @@ class SegGANTrainer:
             real_valid, real_class = self.disc_gan(batch_s_img)
             fake_valid, fake_class = self.disc_gan(trans_t_img)
 
-            # calculate wasserstein gradient penalty
-            grad_pen = self.wass_gp(self.disc_gan, batch_s_img, trans_t_img)
+            # calculate wasserstein gradient penalty (or R1)
+            if self.r1:
+                grad_pen = self.r1_reg(real_valid, batch_s_img)
+            else:
+                grad_pen = self.wass_gp(self.disc_gan, batch_s_img, trans_t_img)
 
             # adversarial
-            loss_adv_d = -torch.mean(real_valid) + torch.mean(fake_valid) + self.lambda_gp * grad_pen
+            if self.softplus:
+                loss_adv_d = torch.mean(F.softplus(-real_valid)) + torch.mean(F.softplus(fake_valid)) + self.lambda_gp * grad_pen
+            else:
+                loss_adv_d = -torch.mean(real_valid) + torch.mean(fake_valid) + self.lambda_gp * grad_pen
 
             # domain
             loss_dom_d = self.domain_loss(real_class.view(-1, real_class.shape[-1]), torch.max(batch_s_met, -1)[1].view(-1))
@@ -1612,9 +1634,15 @@ class SegGANTrainer:
                                     seg=False, gan=True,
                                     gan_meta=batch_s_met)
             real_valid, real_class = self.disc_gan(batch_t_img)
-            fake_valid, _ = self.disc_gan(trans_s_img)
-            grad_pen = self.wass_gp(self.disc_gan, batch_s_img, trans_t_img)
-            loss_adv_d += -torch.mean(real_valid) + torch.mean(fake_valid) + self.lambda_gp * grad_pen
+            fake_valid, fake_class = self.disc_gan(trans_s_img)
+            if self.r1:
+                grad_pen = self.r1_reg(real_valid, batch_t_img)
+            else:
+                grad_pen = self.wass_gp(self.disc_gan, batch_t_img, trans_s_img)
+            if self.softplus:
+                loss_adv_d += torch.mean(F.softplus(-real_valid)) + torch.mean(F.softplus(fake_valid)) + self.lambda_gp * grad_pen
+            else:
+                loss_adv_d += -torch.mean(real_valid) + torch.mean(fake_valid) + self.lambda_gp * grad_pen
             loss_dom_d += self.domain_loss(real_class.view(-1, real_class.shape[-1]), torch.max(batch_t_met, -1)[1].view(-1))
 
             # calculate overall loss
@@ -1644,13 +1672,21 @@ class SegGANTrainer:
                 t_valid, t_class = self.disc_seg(t_seg)
 
                 # calculate wasserstein gradient penalty
-                grad_pen = 0.5 * (self.wass_gp(self.disc_seg, batch_s_ref, s_seg) + \
-                    self.wass_gp(self.disc_seg, batch_s_ref, t_seg))
+                if self.r1:
+                    grad_pen = self.r1_reg(gt_valid, batch_s_ref)
+                else:
+                    grad_pen = 0.5 * (self.wass_gp(self.disc_seg, batch_s_ref, s_seg) + \
+                        self.wass_gp(self.disc_seg, batch_s_ref, t_seg))
 
                 # adversarial
-                loss_adv_d = -torch.mean(gt_valid) + \
-                    0.5 * (torch.mean(s_valid) + torch.mean(t_valid)) + \
-                        self.lambda_gp * grad_pen
+                if self.softplus:
+                    loss_adv_d = torch.mean(F.softplus(-gt_valid)) + \
+                         0.5 * (torch.mean(F.softplus(s_valid)) + torch.mean(F.softplus(t_valid))) + \
+                            self.lambda_gp * grad_pen
+                else:
+                    loss_adv_d = -torch.mean(gt_valid) + \
+                        0.5 * (torch.mean(s_valid) + torch.mean(t_valid)) + \
+                            self.lambda_gp * grad_pen
                 # domain
                 loss_dom_d = 0.5 * (self.domain_loss(s_class.view(-1, s_class.shape[-1]), torch.max(batch_s_met, -1)[1].view(-1)) + \
                     self.domain_loss(t_class.view(-1, t_class.shape[-1]), torch.max(batch_t_met, -1)[1].view(-1)))
@@ -1677,7 +1713,10 @@ class SegGANTrainer:
 
                 fake_valid, fake_class = self.disc_gan(s_t_img)
 
-                loss_g_adv = - torch.mean(fake_valid)
+                if self.softplus:
+                    loss_g_adv = torch.mean(F.softplus(-fake_valid))
+                else:
+                    loss_g_adv = - torch.mean(fake_valid)
 
                 loss_g_dom = self.domain_loss(fake_class.view(-1, fake_class.shape[-1]), torch.max(batch_t_met, -1)[1].view(-1))
 
@@ -1688,7 +1727,10 @@ class SegGANTrainer:
 
                 fake_valid, fake_class = self.disc_gan(t_s_img)
 
-                loss_g_adv += - torch.mean(fake_valid)
+                if self.softplus:
+                    loss_g_adv += torch.mean(F.softplus(-fake_valid))
+                else:
+                    loss_g_adv += - torch.mean(fake_valid)
 
                 loss_g_dom += self.domain_loss(fake_class.view(-1, fake_class.shape[-1]), torch.max(batch_s_met, -1)[1].view(-1))
 
@@ -1780,10 +1822,16 @@ class SegGANTrainer:
                     t_s_valid, t_s_class = self.disc_seg(t_s_seg)
 
                     # adversarial
-                    loss_seg_adv = -torch.mean(s_valid)
-                    loss_seg_adv += -torch.mean(t_valid)
-                    loss_seg_adv += -torch.mean(s_t_valid)
-                    loss_seg_adv += -torch.mean(t_s_valid)
+                    if self.softplus:
+                        loss_seg_adv = torch.mean(F.softplus(-s_valid))
+                        loss_seg_adv += torch.mean(F.softplus(-t_valid))
+                        loss_seg_adv += torch.mean(F.softplus(-s_t_valid))
+                        loss_seg_adv += torch.mean(F.softplus(-t_s_valid))
+                    else:
+                        loss_seg_adv = -torch.mean(s_valid)
+                        loss_seg_adv += -torch.mean(t_valid)
+                        loss_seg_adv += -torch.mean(s_t_valid)
+                        loss_seg_adv += -torch.mean(t_s_valid)
 
                     # domain
                     loss_seg_dom = self.domain_loss(s_class.view(-1, s_class.shape[-1]), torch.max(batch_s_met, -1)[1].view(-1))
