@@ -1535,7 +1535,7 @@ class SegGANTrainer:
         gp = gp.mean()
         return gp
 
-    def r1_reg(d_out, x_in):
+    def r1_reg(self, d_out, x_in):
         # zero-centered gradient penalty for real images
         batch_size = x_in.size(0)
         grad_dout = torch.autograd.grad(
