@@ -1616,7 +1616,7 @@ class SegGANTrainer:
 
             # calculate wasserstein gradient penalty (or R1)
             if self.r1:
-                grad_pen = self.r1_reg(real_valid, batch_s_img.requires_grad_(True))
+                grad_pen = self.r1_reg(real_valid, batch_s_img)
             else:
                 grad_pen = self.wass_gp(self.disc_gan, batch_s_img, trans_t_img)
 
