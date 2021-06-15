@@ -1273,7 +1273,7 @@ class SegGANTrainer:
                  seg_interval=20,
                  adv_seg_start=5,
                  softplus=True,
-                 r1=True,
+                 r1=False,
                  nb_epoch=100,
                  nb_steps=None,
                  *, # the remaining parameters *must be* keywords
