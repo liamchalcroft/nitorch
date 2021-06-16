@@ -1380,9 +1380,9 @@ class SegGANTrainer:
             self.optim_d_gan = None
             self.optim_d_seg = None
             if self.disc_gan:
-                self.optim_d_gan = torch.optim.Adam(self.disc_gan.parameters(), lr=0.00005, betas=(0.5,0.999))
+                self.optim_d_gan = torch.optim.Adam(self.disc_gan.parameters(), lr=0.00001, betas=(0.5,0.999))
             if self.disc_seg:
-                self.optim_d_seg = torch.optim.Adam(self.disc_seg.parameters(), lr=0.00005, betas=(0.5,0.999))
+                self.optim_d_seg = torch.optim.Adam(self.disc_seg.parameters(), lr=0.00001, betas=(0.5,0.999))
         self.optimizer = optimizer
         self.lambda_gp = lambda_gp
         self.lambda_domain = lambda_domain
