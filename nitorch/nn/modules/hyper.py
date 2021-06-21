@@ -292,8 +292,9 @@ class HyperConv(tnn.Module):
         weight = self.head_w(meta)
 
         if self.grouppool==True:
-            weight = torch.mean(weight, dim=1)
+            # weight = torch.mean(weight, dim=1)
             shape[0] //= meta.shape[1]
+            shape[1] *= meta.shape[1]
             
         weight = weight.view(shape)
 
