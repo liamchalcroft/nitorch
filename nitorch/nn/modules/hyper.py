@@ -313,7 +313,8 @@ class HyperConv(tnn.Module):
             if self.grouppool==True:
                 x = F.conv2d(x, weight, bias, 
                 # stride=self.stride, padding=padding, groups=np.prod(meta.shape[:2]))
-                stride=self.stride, padding=padding)
+                # stride=self.stride, padding=padding)
+                stride=self.stride, padding=padding, groups=meta.shape[0])
             else:
                 x = F.conv2d(x, weight, bias, 
                 stride=self.stride, padding=padding, groups=np.prod(meta.shape[:2]))
@@ -322,7 +323,8 @@ class HyperConv(tnn.Module):
             if self.grouppool==True:
                 x = F.conv3d(x, weight, bias, 
                 # stride=self.stride, padding=padding, groups=np.prod(meta.shape[:2]))
-                stride=self.stride, padding=padding)
+                # stride=self.stride, padding=padding)
+                stride=self.stride, padding=padding, groups=meta.shape[0])
             else:    
                 x = F.conv3d(x, weight, bias, 
                 stride=self.stride, padding=padding, groups=np.prod(meta.shape[:2]))
