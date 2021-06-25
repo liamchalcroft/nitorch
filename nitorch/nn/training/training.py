@@ -1535,7 +1535,9 @@ class SegGANTrainer:
         gp = gp.mean()
         return gp
 
-    def r1_reg(self, d_out, x_in):
+    def r1_reg(self, disc, x_in):
+        x_in.requires_grad = True
+        d_out,_ = disc(x_in)
         # zero-centered gradient penalty for real images
         batch_size = x_in.size(0)
         grad_dout = torch.autograd.grad(
@@ -1616,7 +1618,7 @@ class SegGANTrainer:
 
             # calculate wasserstein gradient penalty (or R1)
             if self.r1:
-                grad_pen = self.r1_reg(real_valid, batch_s_img)
+                grad_pen = self.r1_reg(self.disc_gan, batch_s_img)
             else:
                 grad_pen = self.wass_gp(self.disc_gan, batch_s_img, trans_t_img)
 
@@ -1636,7 +1638,7 @@ class SegGANTrainer:
             real_valid, real_class = self.disc_gan(batch_t_img)
             fake_valid, fake_class = self.disc_gan(trans_s_img)
             if self.r1:
-                grad_pen = self.r1_reg(real_valid, batch_t_img)
+                grad_pen = self.r1_reg(self.disc_gan, batch_t_img)
             else:
                 grad_pen = self.wass_gp(self.disc_gan, batch_t_img, trans_s_img)
             if self.softplus:
@@ -1673,7 +1675,7 @@ class SegGANTrainer:
 
                 # calculate wasserstein gradient penalty
                 if self.r1:
-                    grad_pen = self.r1_reg(gt_valid, batch_s_ref)
+                    grad_pen = self.r1_reg(self.disc_seg, batch_s_ref)
                 else:
                     grad_pen = 0.5 * (self.wass_gp(self.disc_seg, batch_s_ref, s_seg) + \
                         self.wass_gp(self.disc_seg, batch_s_ref, t_seg))
