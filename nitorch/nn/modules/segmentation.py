@@ -4,7 +4,7 @@ from nitorch import spatial
 from nitorch.core import utils, math
 from .. import check
 from .base import Module
-from .cnn import UNet, MRF
+from .cnn import UNet, MRF, GroupNet, HyperCycleSegNet, Discriminator
 from .spatial import GridPull, GridPushCount
 from ..generators import (BiasFieldTransform, DiffeoSample)
 import torch
@@ -919,6 +919,420 @@ class MRFNet(Module):
         return p
 
 
+class GroupSegNet(Module):
+    """Modified U-Net structure, with multi-headed decoder for modality channels.
+    Network depth to 'fuse' heads is controlled by variable fusion_depth; prior to
+    fusion each modality will be treated individually using grouped convolutions
+    and GroupNorm. 1x1 convolution used to pool channels before skip connections.
+    
+    """
+    def __init__(self,
+                dim,
+                fusion_depth=None,
+                output_classes=1,
+                input_channels=1,
+                hyper=False,
+                meta_dim=None,
+                encoder=None,
+                decoder=None,
+                kernel_size=3,
+                activation=tnn.LeakyReLU(0.2),
+                conv_per_layer=1,
+                residual=False,
+                batch_norm=True,
+                implicit=True,
+                augmentation=None,
+                skip_final_activation=False):
+        """
+
+        Parameters
+        ----------
+
+        dim : int
+            Space dimension
+
+        fusion_depth: int, default=None
+            Network depth to fuse modalities into single group.
+
+        output_classes : int, default=1
+            Number of classes, excluding background
+
+        input_channels : int, default=1
+            Number of input channels
+
+        hyper : bool, default=False
+            Hypernetwork for group-wise channels. 
+            If True, please ensure correct in_channels value.
+
+        meta_dim : int
+            Dimensionality of metadata input to hypernet(s).
+
+        encoder : sequence[int], optional
+            Number of features per encoding layer
+
+        decoder : sequence[int], optional
+            Number of features per decoding layer
+
+        kernel_size : int or sequence[int], default=3
+            Kernel size
+
+        activation : str or callable, default=LeakyReLU(0.2)
+            Activation function in the UNet.
+
+        conv_per_layer : int, default=1
+            Number of convolution layers to use per stack.
+
+        residual : bool, default=False
+            Add residual connections between convolutions.
+            This has no effect if only one convolution is performed.
+            No residual connection is applied to the output of the last
+            layer (strided conv or pool).
+
+        batch_norm : bool or callable, default=True
+            Batch normalization layer.
+            Can be a class (typically a Module), which is then instantiated,
+            or a callable (an already instantiated class or a more simple
+            function).
+
+        implicit : bool, default=True
+            Only return `output_classes` probabilities (the last one
+            is implicit as probabilities must sum to 1).
+            Else, return `output_classes + 1` probabilities.
+
+        bg_class : int, default=0
+            Index of background class in reference segmentation.
+
+        augmentation : str or sequence[str], default=None
+            Apply various augmentation techniques, available methods are:
+            * 'warp' : Nonlinear warp of input image and target label
+            * 'noise' : Additive gaussian noise to image
+            * 'inu' : Multiplicative intensity non-uniformity (INU) to image
+
+        skip_final_activation : bool, default=False
+            Option to skip final activation of network. Useful for e.g. combining with MRF/CRF.
+
+        """
+        super().__init__()
+
+        self.implicit = implicit
+        self.output_classes = output_classes
+        if not isinstance(augmentation, (list, tuple)):  augmentation = [augmentation]
+        augmentation = ['warp-img-lab' if a == 'warp' else a for a in augmentation]
+        self.augmentation = augmentation
+        final_activation = None
+        if not skip_final_activation:
+            if implicit and output_classes == 1:
+                final_activation = tnn.Sigmoid
+            else:
+                final_activation = tnn.Softmax(dim=1)
+        if implicit:
+            output_classes += 1
+        # Add tensorboard callback
+        self.board = lambda tb, *args, **kwargs: board(tb, *args, **kwargs, implicit=implicit, dim=dim)
+
+        self.groupnet = GroupNet(
+            dim=dim,
+            in_channels=input_channels,
+            out_channels=output_classes,
+            fusion_depth=fusion_depth,
+            hyper=hyper,
+            meta_dim=meta_dim,
+            encoder=encoder,
+            decoder=decoder,
+            kernel_size=kernel_size,
+            activation=[activation, final_activation],
+            batch_norm=batch_norm,
+            conv_per_layer=conv_per_layer,
+            residual=residual
+            )
+
+        # register loss tag
+        self.tags = ['segmentation']
+
+    # defer properties
+    dim = property(lambda self: self.groupnet.dim)
+    encoder = property(lambda self: self.groupnet.encoder)
+    decoder = property(lambda self: self.groupnet.decoder)
+    kernel_size = property(lambda self: self.groupnet.kernel_size)
+    activation = property(lambda self: self.groupnet.activation)
+
+    def forward(self, image, ref=None, meta=None,  *, _loss=None, _metric=None):
+        """
+
+        Parameters
+        ----------
+        image : (batch, input_channels, *spatial) tensor
+            Input image
+        ref : (batch, output_classes[+1], *spatial) tensor, optional
+            Ground truth segmentation, used by the loss function.
+            Its data type should be integer if it contains hard labels,
+            and floating point if it contains soft segmentations.
+        _loss : dict, optional
+            Dictionary of losses that will be modified in place.
+            If provided along with `ref`, all registered loss
+            functions will be applied and stored under the key
+            '<tag>/<name>' in the dictionary.
+        _metric : dict, optional
+            Dictionary of losses that will be modified in place.
+            If provided along with `ref`, all registered loss
+            functions will be applied and stored under the key
+            '<tag>/<name>' in the dictionary.
+
+        Returns
+        -------
+        prob : (batch, output_classes[+1], *spatial)
+            Tensor of class probabilities.
+            If `implicit` is True, the background class is not returned.
+
+        """
+        image = torch.as_tensor(image)
+
+        # sanity check
+        check.dim(self.dim, image)
+
+        if ref is not None:
+            # augment
+            for aug_method in self.augmentation:
+                image, ref = augment(aug_method, image, ref)
+
+        # unet
+        prob = self.groupnet(image, meta)
+        if self.implicit and prob.shape[1] > self.output_classes:
+            prob = prob[:, :-1, ...]
+
+        # compute loss and metrics
+        if ref is not None:
+            # sanity checks
+            check.dim(self.dim, ref)
+            dims = [0] + list(range(2, self.dim + 2))
+            check.shape(prob, ref, dims=dims)
+            self.compute(_loss, _metric, segmentation=[prob, ref])
+        return prob
+
+
+class HyperSegGenNet(Module):
+    """GroupSegNet model above with second copy of final stack to
+    use model simultaneously as image-image translator, following
+    method similar to Fixed-Point GAN (https://arxiv.org/abs/1908.06965)
+    
+    """
+    def __init__(self,
+                dim,
+                fusion_depth=2,
+                output_classes=1,
+                input_channels=1,
+                meta_dim=None,
+                encoder=None,
+                decoder=None,
+                kernel_size=3,
+                activation=tnn.LeakyReLU(0.2),
+                gan_activation=tnn.Tanh(),
+                gan_channels=None,
+                conv_per_layer=1,
+                residual=False,
+                delta_map=True,
+                batch_norm=True,
+                implicit=True,
+                augmentation=None,
+                skip_final_activation=False):
+        """
+
+        Parameters
+        ----------
+
+        dim : int
+            Space dimension
+
+        fusion_depth: int, default=None
+            Network depth to fuse modalities into single group.
+
+        output_classes : int, default=1
+            Number of classes, excluding background
+
+        input_channels : int, default=1
+            Number of input channels
+
+        hyper : bool, default=False
+            Hypernetwork for group-wise channels. 
+            If True, please ensure correct in_channels value.
+
+        meta_dim : int
+            Dimensionality of metadata input to hypernet(s).
+
+        encoder : sequence[int], optional
+            Number of features per encoding layer
+
+        decoder : sequence[int], optional
+            Number of features per decoding layer
+
+        kernel_size : int or sequence[int], default=3
+            Kernel size
+
+        activation : str or callable, default=LeakyReLU(0.2)
+            Activation function in the UNet.
+
+        conv_per_layer : int, default=1
+            Number of convolution layers to use per stack.
+
+        residual : bool, default=False
+            Add residual connections between convolutions.
+            This has no effect if only one convolution is performed.
+            No residual connection is applied to the output of the last
+            layer (strided conv or pool).
+
+        delta_map : bool, default=True
+            Add input to final output (pre-activation) as per https://arxiv.org/abs/1711.08998
+
+        batch_norm : bool or callable, default=True
+            Batch normalization layer.
+            Can be a class (typically a Module), which is then instantiated,
+            or a callable (an already instantiated class or a more simple
+            function).
+
+        implicit : bool, default=True
+            Only return `output_classes` probabilities (the last one
+            is implicit as probabilities must sum to 1).
+            Else, return `output_classes + 1` probabilities.
+
+        bg_class : int, default=0
+            Index of background class in reference segmentation.
+
+        augmentation : str or sequence[str], default=None
+            Apply various augmentation techniques, available methods are:
+            * 'warp' : Nonlinear warp of input image and target label
+            * 'noise' : Additive gaussian noise to image
+            * 'inu' : Multiplicative intensity non-uniformity (INU) to image
+
+        skip_final_activation : bool, default=False
+            Option to skip final activation of network. Useful for e.g. combining with MRF/CRF.
+
+        """
+        super().__init__()
+
+        self.delta_map = delta_map
+
+        self.implicit = implicit
+        self.output_classes = output_classes
+        if not isinstance(augmentation, (list, tuple)):  augmentation = [augmentation]
+        augmentation = ['warp-img-lab' if a == 'warp' else a for a in augmentation]
+        self.augmentation = augmentation
+        final_activation = None
+        if not gan_channels:
+            gan_channels = input_channels
+        if not skip_final_activation:
+            if implicit and output_classes == 1:
+                final_activation = tnn.Sigmoid
+            else:
+                final_activation = tnn.Softmax(dim=1)
+        if implicit:
+            output_classes += 1
+        # Add tensorboard callback
+        self.board = lambda tb, *args, **kwargs: board(tb, *args, **kwargs, implicit=implicit, dim=dim)
+
+        self.groupnet = HyperCycleSegNet(
+            dim=dim,
+            in_channels=input_channels,
+            out_channels=output_classes,
+            fusion_depth=fusion_depth,
+            meta_dim=meta_dim,
+            encoder=encoder,
+            decoder=decoder,
+            kernel_size=kernel_size,
+            activation=[activation, final_activation],
+            gan_activation=gan_activation,
+            gan_channels=gan_channels,
+            batch_norm=batch_norm,
+            conv_per_layer=conv_per_layer,
+            residual=residual,
+            delta_map=delta_map
+            )
+
+        # register loss tag
+        self.tags = ['segmentation']
+
+    # defer properties
+    dim = property(lambda self: self.groupnet.dim)
+    encoder = property(lambda self: self.groupnet.encoder)
+    decoder = property(lambda self: self.groupnet.decoder)
+    kernel_size = property(lambda self: self.groupnet.kernel_size)
+    activation = property(lambda self: self.groupnet.activation)
+
+    def forward(self, image, ref=None, meta=None, 
+                seg=True, gan=False, gan_meta=None,
+                joint_seg=False, return_feat=False,
+                *, _loss=None, _metric=None):
+        """
+
+        Parameters
+        ----------
+        image : (batch, input_channels, *spatial) tensor
+            Input image
+        ref : (batch, output_classes[+1], *spatial) tensor, optional
+            Ground truth segmentation, used by the loss function.
+            Its data type should be integer if it contains hard labels,
+            and floating point if it contains soft segmentations.
+        _loss : dict, optional
+            Dictionary of losses that will be modified in place.
+            If provided along with `ref`, all registered loss
+            functions will be applied and stored under the key
+            '<tag>/<name>' in the dictionary.
+        _metric : dict, optional
+            Dictionary of losses that will be modified in place.
+            If provided along with `ref`, all registered loss
+            functions will be applied and stored under the key
+            '<tag>/<name>' in the dictionary.
+
+        Returns
+        -------
+        prob : (batch, output_classes[+1], *spatial)
+            Tensor of class probabilities.
+            If `implicit` is True, the background class is not returned.
+
+        """
+        image = torch.as_tensor(image)
+
+        # sanity check
+        check.dim(self.dim, image)
+
+        if seg and ref is not None:
+            # augment
+            for aug_method in self.augmentation:
+                image, ref = augment(aug_method, image, ref)
+
+        if gan or joint_seg:
+            if self.delta_map:
+                trans_t, delta_trans_t = self.groupnet(image, meta, gan=True, gan_meta=gan_meta, return_feat=return_feat)
+            else:
+                trans_t = self.groupnet(image, meta, gan=True, gan_meta=gan_meta, return_feat=return_feat)
+        
+        if seg:
+            prob = self.groupnet(image, meta, gan=False, return_feat=return_feat)
+            if self.implicit and prob.shape[1] > self.output_classes:
+                prob = prob[:, :-1, ...]
+            if gan or joint_seg:
+                prob_t = self.groupnet(trans_t, gan_meta, gan=False, return_feat=return_feat)
+                if self.implicit and prob_t.shape[1] > self.output_classes:
+                    prob_t = prob_t[:, :-1, ...]
+
+                if joint_seg:
+                    prob = torch.mean(torch.stack([prob, prob_t]), dim=0)
+
+        # compute loss and metrics
+        if seg and ref is not None:
+            # sanity checks
+            check.dim(self.dim, ref)
+            dims = [0] + list(range(2, self.dim + 2))
+            check.shape(prob, ref, dims=dims)
+            self.compute(_loss, _metric, segmentation=[prob, ref])
+        
+        if gan and not seg:
+            return trans_t
+        elif gan and seg:
+            return prob, prob_t, trans_t
+        else:
+            return prob
+
+
 def board(tb, inputs=None, outputs=None, epoch=None, minibatch=None,
           mode=None, loss=None, losses=None, metrics=None, implicit=False, dim=3):
     """TensorBoard visualisation of a segmentation model's inputs and outputs.
@@ -972,9 +1386,12 @@ def board(tb, inputs=None, outputs=None, epoch=None, minibatch=None,
             slice_target = (slice_target.argmax(dim=0, keepdim=False))/(K1 - 1)
         else:
             slice_target =  slice_target.float() / slice_target.max().float()
-        return slice_target
+        return slice_target.flatten()
 
     def to_grid(slice_input, slice_target, slice_prediction):
+        # print('slice input shape:', slice_input.shape)
+        # print('slice target shape:', slice_target.shape)
+        # print('slice prediction shape:', slice_prediction.shape)
         return torch.cat((slice_input, slice_target, slice_prediction), dim=1)
 
     def get_slices(plane, inputs, outputs, dim, implicit):
@@ -998,11 +1415,14 @@ def board(tb, inputs=None, outputs=None, epoch=None, minibatch=None,
     if inputs is None or outputs is None:
         return
     # Add to TensorBoard
-    title = 'Image-Target-Prediction_'
-    tb.add_image(title + 'z', get_image('z', inputs, outputs, dim, implicit))
-    if dim == 3:
-        tb.add_image(title + 'y', get_image('y', inputs, outputs, dim, implicit))
-        tb.add_image(title + 'x', get_image('x', inputs, outputs, dim, implicit))
+    try:
+        title = 'Image-Target-Prediction_'
+        tb.add_image(title + 'z', get_image('z', inputs, outputs, dim, implicit))
+        if dim == 3:
+            tb.add_image(title + 'y', get_image('y', inputs, outputs, dim, implicit))
+            tb.add_image(title + 'x', get_image('x', inputs, outputs, dim, implicit))
+    except:
+        return
     tb.flush()
 
 

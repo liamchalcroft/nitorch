@@ -1403,6 +1403,26 @@ def fold(inp, dim=None, stride=None, shape=None, collapsed=False,
     return out
 
 
+def rubiks_shuffle(inp):
+    """Takes tensor (..., *spatial, *kernel_size) and shuffles across spatial dims.
+    Useful for pretraining via Rubik's Cube / Jigsaw method.
+    """
+    
+    inp = torch.as_tensor(inp)
+    dim = len(inp.shape[2:])//2
+
+    out = inp
+    
+    if dim>=1:
+        out = out[:,:,torch.randperm(inp.shape[2])]
+    if dim>=2:
+        out = out[:,:,:,torch.randperm(inp.shape[3])]
+    if dim==3:
+        out = out[:,:,:,:,torch.randperm(inp.shape[4])]
+
+    return out
+
+
 class benchmark:
     """Context manager for the convolution benchmarking utility
     from pytorch.
