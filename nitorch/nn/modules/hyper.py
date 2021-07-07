@@ -82,6 +82,7 @@ class HyperGroupNorm(tnn.Module):
             self.meta_act = tnn.LeakyReLU()
         else:
             self.meta_act = meta_act
+        self.final_act = tnn.Tanh()
 
         # define network layers
         shared_modules = []
@@ -100,13 +101,17 @@ class HyperGroupNorm(tnn.Module):
         device = x.device
 
         self.meta_act = self.meta_act.to(device)
+        self.final_act = self.final_act.to(device)
         self.head_w = self.head_w.to(device)
         self.head_b = self.head_b.to(device)
 
-        for block in self.blocks:
+        for i, block in enumerate(self.blocks):
             block = block.to(device)
             meta = block(meta)
-            meta = self.meta_act(meta)
+            if i < len(self.blocks)-1:
+                meta = self.meta_act(meta)
+            else:
+                meta = self.final_act
 
         weight = self.head_w(meta)
         bias = self.head_b(meta)
@@ -241,6 +246,7 @@ class HyperConv(tnn.Module):
             self.meta_act = tnn.LeakyReLU()
         else:
             self.meta_act = meta_act
+        self.final_act = tnn.Tanh()
 
         # define network layers
         shared_modules = []
@@ -284,10 +290,13 @@ class HyperConv(tnn.Module):
         shape = self.shape.copy()
         shape[0] *= np.prod(meta.shape[:2])
         
-        for block in self.blocks:
+        for i, block in enumerate(self.blocks):
             block = block.to(device)
             meta = block(meta)
-            meta = self.meta_act(meta)
+            if i < len(self.blocks)-1:
+                meta = self.meta_act(meta)
+            else:
+                meta = self.final_act
 
         weight = self.head_w(meta)
 
@@ -457,6 +466,7 @@ class HyperConvTranspose(tnn.Module):
             self.meta_act = tnn.LeakyReLU()
         else:
             self.meta_act = meta_act
+        self.final_act = tnn.Tanh()
 
         # define network layers
         shared_modules = []
@@ -500,10 +510,13 @@ class HyperConvTranspose(tnn.Module):
         shape = self.shape.copy()
         shape[1] *= np.prod(meta.shape[:2])
         
-        for block in self.blocks:
+        for i, block in enumerate(self.blocks):
             block = block.to(device)
             meta = block(meta)
-            meta = self.meta_act(meta)
+            if i < len(self.blocks)-1:
+                meta = self.meta_act(meta)
+            else:
+                meta = self.final_act
 
         weight = self.head_w(meta)
 
