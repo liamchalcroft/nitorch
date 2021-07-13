@@ -4,7 +4,7 @@ from nitorch import spatial
 from nitorch.core import utils, math
 from .. import check
 from .base import Module
-from .cnn import UNet, MRF, GroupNet, HyperCycleSegNet, Discriminator
+from .cnn import UNet, MRF, GroupNet, HyperCycleSegNet, PhysicsSegNet
 from .spatial import GridPull, GridPushCount
 from ..generators import (BiasFieldTransform, DiffeoSample)
 import torch
@@ -1111,6 +1111,193 @@ class GroupSegNet(Module):
             check.shape(prob, ref, dims=dims)
             self.compute(_loss, _metric, segmentation=[prob, ref])
         return (prob, adv_pred) if adv else prob
+
+
+class PhysicsNet(Module):
+    """U-Net with added subnet for imaging parameters, adapted from https://arxiv.org/abs/2001.10767
+    Docstring is WIP
+    
+    """
+    def __init__(self,
+                dim,
+                output_classes=1,
+                input_channels=1,
+                patch_size=[96,96,96],
+                meta_dim=None,
+                encoder=None,
+                decoder=None,
+                kernel_size=3,
+                activation=tnn.LeakyReLU(0.2),
+                conv_per_layer=1,
+                residual=False,
+                batch_norm=True,
+                implicit=True,
+                augmentation=None,
+                skip_final_activation=False):
+        """
+
+        Parameters
+        ----------
+
+        dim : int
+            Space dimension
+
+        fusion_depth: int, default=None
+            Network depth to fuse modalities into single group.
+
+        output_classes : int, default=1
+            Number of classes, excluding background
+
+        input_channels : int, default=1
+            Number of input channels
+
+        hyper : bool, default=False
+            Hypernetwork for group-wise channels. 
+            If True, please ensure correct in_channels value.
+
+        meta_dim : int
+            Dimensionality of metadata input to hypernet(s).
+
+        encoder : sequence[int], optional
+            Number of features per encoding layer
+
+        decoder : sequence[int], optional
+            Number of features per decoding layer
+
+        kernel_size : int or sequence[int], default=3
+            Kernel size
+
+        activation : str or callable, default=LeakyReLU(0.2)
+            Activation function in the UNet.
+
+        conv_per_layer : int, default=1
+            Number of convolution layers to use per stack.
+
+        residual : bool, default=False
+            Add residual connections between convolutions.
+            This has no effect if only one convolution is performed.
+            No residual connection is applied to the output of the last
+            layer (strided conv or pool).
+
+        batch_norm : bool or callable, default=True
+            Batch normalization layer.
+            Can be a class (typically a Module), which is then instantiated,
+            or a callable (an already instantiated class or a more simple
+            function).
+
+        implicit : bool, default=True
+            Only return `output_classes` probabilities (the last one
+            is implicit as probabilities must sum to 1).
+            Else, return `output_classes + 1` probabilities.
+
+        bg_class : int, default=0
+            Index of background class in reference segmentation.
+
+        augmentation : str or sequence[str], default=None
+            Apply various augmentation techniques, available methods are:
+            * 'warp' : Nonlinear warp of input image and target label
+            * 'noise' : Additive gaussian noise to image
+            * 'inu' : Multiplicative intensity non-uniformity (INU) to image
+
+        skip_final_activation : bool, default=False
+            Option to skip final activation of network. Useful for e.g. combining with MRF/CRF.
+
+        """
+        super().__init__()
+
+        self.implicit = implicit
+        self.output_classes = output_classes
+        if not isinstance(augmentation, (list, tuple)):  augmentation = [augmentation]
+        augmentation = ['warp-img-lab' if a == 'warp' else a for a in augmentation]
+        self.augmentation = augmentation
+        final_activation = None
+        if not skip_final_activation:
+            if implicit and output_classes == 1:
+                final_activation = tnn.Sigmoid
+            else:
+                final_activation = tnn.Softmax(dim=1)
+        if implicit:
+            output_classes += 1
+        # Add tensorboard callback
+        self.board = lambda tb, *args, **kwargs: board(tb, *args, **kwargs, implicit=implicit, dim=dim)
+
+        self.groupnet = PhysicsSegNet(
+            dim=dim,
+            in_channels=input_channels,
+            out_channels=output_classes,
+            patch_size=patch_size,
+            meta_dim=meta_dim,
+            encoder=encoder,
+            decoder=decoder,
+            kernel_size=kernel_size,
+            activation=[activation, final_activation],
+            batch_norm=batch_norm,
+            conv_per_layer=conv_per_layer,
+            residual=residual
+            )
+
+        # register loss tag
+        self.tags = ['segmentation']
+
+    # defer properties
+    dim = property(lambda self: self.groupnet.dim)
+    encoder = property(lambda self: self.groupnet.encoder)
+    decoder = property(lambda self: self.groupnet.decoder)
+    kernel_size = property(lambda self: self.groupnet.kernel_size)
+    activation = property(lambda self: self.groupnet.activation)
+
+    def forward(self, image, ref=None, meta=None,  *, _loss=None, _metric=None):
+        """
+
+        Parameters
+        ----------
+        image : (batch, input_channels, *spatial) tensor
+            Input image
+        ref : (batch, output_classes[+1], *spatial) tensor, optional
+            Ground truth segmentation, used by the loss function.
+            Its data type should be integer if it contains hard labels,
+            and floating point if it contains soft segmentations.
+        _loss : dict, optional
+            Dictionary of losses that will be modified in place.
+            If provided along with `ref`, all registered loss
+            functions will be applied and stored under the key
+            '<tag>/<name>' in the dictionary.
+        _metric : dict, optional
+            Dictionary of losses that will be modified in place.
+            If provided along with `ref`, all registered loss
+            functions will be applied and stored under the key
+            '<tag>/<name>' in the dictionary.
+
+        Returns
+        -------
+        prob : (batch, output_classes[+1], *spatial)
+            Tensor of class probabilities.
+            If `implicit` is True, the background class is not returned.
+
+        """
+        image = torch.as_tensor(image)
+
+        # sanity check
+        check.dim(self.dim, image)
+
+        if ref is not None:
+            # augment
+            for aug_method in self.augmentation:
+                image, ref = augment(aug_method, image, ref)
+
+        # unet
+        prob = self.groupnet(image, meta)
+        if self.implicit and prob.shape[1] > self.output_classes:
+            prob = prob[:, :-1, ...]
+
+        # compute loss and metrics
+        if ref is not None:
+            # sanity checks
+            check.dim(self.dim, ref)
+            dims = [0] + list(range(2, self.dim + 2))
+            check.shape(prob, ref, dims=dims)
+            self.compute(_loss, _metric, segmentation=[prob, ref])
+        return prob
 
 
 class HyperSegGenNet(Module):
