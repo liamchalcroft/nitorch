@@ -2904,7 +2904,7 @@ class GroupNet(tnn.Sequential):
             final = HyperConv(
                         dim,
                         in_channels=last_stack,
-                        out_channels=cout,
+                        out_channels=out_channels,
                         meta_dim=meta_dim,
                         kernel_size=kernel_size,
                         activation=final_activation,
@@ -3469,7 +3469,7 @@ class HyperUNet(tnn.Sequential):
         final = HyperConv(
                     dim,
                     in_channels=last_stack,
-                    out_channels=cout,
+                    out_channels=out_channels,
                     meta_dim=meta_dim,
                     kernel_size=kernel_size,
                     activation=final_activation,
