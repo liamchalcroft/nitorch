@@ -1056,7 +1056,7 @@ class GroupSegNet(Module):
     kernel_size = property(lambda self: self.groupnet.kernel_size)
     activation = property(lambda self: self.groupnet.activation)
 
-    def forward(self, image, ref=None, meta=None,  *, _loss=None, _metric=None):
+    def forward(self, image, ref=None, meta=None,  *, _loss=None, _metric=None, adv=None):
         """
 
         Parameters
@@ -1096,7 +1096,10 @@ class GroupSegNet(Module):
                 image, ref = augment(aug_method, image, ref)
 
         # unet
-        prob = self.groupnet(image, meta)
+        if adv:
+            prob, adv_pred = self.groupnet(image, meta, adv=adv)
+        else:
+            prob = self.groupnet(image, meta)
         if self.implicit and prob.shape[1] > self.output_classes:
             prob = prob[:, :-1, ...]
 
@@ -1107,7 +1110,7 @@ class GroupSegNet(Module):
             dims = [0] + list(range(2, self.dim + 2))
             check.shape(prob, ref, dims=dims)
             self.compute(_loss, _metric, segmentation=[prob, ref])
-        return prob
+        return (prob, adv_pred) if adv else prob
 
 
 class HyperSegGenNet(Module):
