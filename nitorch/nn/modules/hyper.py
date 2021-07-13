@@ -703,7 +703,6 @@ class HyperStack(tnn.Module):
                 batch_norm=bn,
                 stride=stride,
                 bias=b,
-                grouppool=grouppool,
                 meta_act=meta_act,
                 meta_depth=meta_depth))
         else:
