@@ -1654,6 +1654,7 @@ class SegGANTrainer:
             losses['loss_dom_d_gan'] = loss_dom_d
             losses['loss_d_gan'] = loss_d_gan
 
+            self.optim_d_gan.zero_grad()
             loss_d_gan.backward()
             self.optim_d_gan.step()
 
@@ -1699,7 +1700,8 @@ class SegGANTrainer:
                 losses['loss_adv_d_seg'] = loss_adv_d
                 losses['loss_dom_d_seg'] = loss_dom_d
                 losses['loss_d_seg'] = loss_d_seg
-
+                
+                self.optim_d_seg.zero_grad()
                 loss_d_seg.backward()
                 self.optim_d_seg.step()
 
@@ -1779,6 +1781,7 @@ class SegGANTrainer:
                 losses['loss_g_id'] = loss_g_id
                 losses['loss_g'] = loss_g
 
+                self.optimizer.zero_grad()
                 loss_g.backward()
                 self.optimizer.step()
 
@@ -1786,7 +1789,6 @@ class SegGANTrainer:
 
             if n_batch % self.seg_interval == 0:
                 ## training segmentation 'generator' via Dice
-                self.optimizer.zero_grad()
 
                 # segment images
                 s_seg = self.model(image=batch_s_img, meta=batch_s_met,
@@ -1860,6 +1862,7 @@ class SegGANTrainer:
 
                 losses['loss_seg'] = loss_seg
 
+                self.optimizer.zero_grad()
                 loss_seg.backward()
                 self.optimizer.step()
 
