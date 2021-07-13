@@ -2,6 +2,7 @@
 
 import inspect
 import math
+import numpy as np
 from collections import OrderedDict
 import torch
 from torch import nn as tnn
@@ -3010,6 +3011,272 @@ class GroupNet(tnn.Sequential):
             f = x if return_feat else None
             x = self.final(x)
         return (x, f) if return_feat else (x, adv_pred) if adv else x
+
+    def get_padding(self, outshape, inshape, layer):
+        outshape = outshape[2:]
+        shape = layer.shape(inshape)[2:]
+        padding = [o - i for o, i in zip(outshape, shape)]
+        return padding
+
+
+@nitorchmodule
+class PhysicsSegNet(tnn.Sequential):
+    """ U-Net with added subnet for imaging parameters, adapted from https://arxiv.org/abs/2001.10767
+    """
+
+    def __init__(
+            self,
+            dim,
+            in_channels,
+            out_channels,
+            patch_size,
+            meta_dim=None,
+            encoder=None,
+            decoder=None,
+            kernel_size=3,
+            stride=2,
+            activation=tnn.LeakyReLU(),
+            batch_norm=True,
+            residual=False,
+            conv_per_layer=1):
+        """
+
+        Parameters
+        ----------
+        dim : {1, 2, 3}
+            Dimension.
+            
+        in_channels : int
+            Number of input channels.
+            
+        out_channels : int
+            Number of output channels.
+
+        patch_size : int or list[int]
+            Size of image/volume patches to be used. Must be fixed for physics subnet.
+
+        meta_dim : int
+            Dimensionality of metadata input to subnet.
+            
+        encoder : sequence[int], default=[16, 32, 32, 32]
+            Number of channels in each encoding layer.
+            
+        decoder : sequence[int], default=[32, 32, 32, 16]
+            Number of channels in each decoding layer.
+            If the number of decoding layer is larger than the number of
+            encoding layers, stacked convolutions are appended to the
+            UNet.
+            
+        kernel_size : int or sequence[int], default=3
+            Kernel size per dimension.
+
+        stride : int or sequence[int], default=2:
+            Stride of the convolution.
+            
+        activation : [sequence of] str or type or callable or None, default='relu'
+            Activation function. An activation can be a class
+            (typically a Module), which is then instantiated, or a
+            callable (an already instantiated class or a more simple
+            function). It is useful to accept both these cases as they
+            allow to either:
+                * have a learnable activation specific to this module
+                * have a learnable activation shared with other modules
+                * have a non-learnable activation
+            
+        batch_norm : bool or type or callable, default=False
+            Batch normalization before each convolution.
+
+        residual : bool, default=False
+            Add residual connections between convolutions.
+            This has no effect if only one convolution is performed.
+            No residual connection is applied to the output of the last
+            layer (strided conv or pool).
+
+        conv_per_layer : int, default=1
+            Number of convolution layers to use per stack.
+        """
+        self.dim = dim
+        
+        if isinstance(patch_size, int):
+            patch_size = dim * [patch_size]
+        self.patch_size = patch_size
+
+        # defaults
+        conv_per_layer = max(1, conv_per_layer)
+        default_encoder = [16, 32, 32, 32]
+        encoder = list(encoder or default_encoder)
+        default_decoder = list(reversed(encoder[:-1]))
+        decoder = make_list(decoder or default_decoder, 
+                             n=len(encoder) - 1, crop=False)
+
+        stack = decoder[len(encoder):]
+        decoder = decoder[:len(encoder)]
+        activation, final_activation = make_list(activation, 2)
+        kernel_size, final_kernel_size = make_list(kernel_size, 2)
+
+        modules = OrderedDict()
+
+        # --- initial feature extraction --------------------------------
+        bn = batch_norm
+
+        modules['first'] = Conv(
+                dim,
+                in_channels=in_channels,
+                out_channels=encoder[0],
+                kernel_size=kernel_size,
+                activation=activation,
+                stride=stride,
+                batch_norm=bn,
+                padding='auto')
+
+        # --- encoder -----------------------------------------------
+        modules_encoder = []
+        for n in range(len(encoder) - 1):
+            cin = encoder[n]
+            cout = encoder[n + 1]
+            cout = [cin] * (conv_per_layer - 1) + [cout]
+            modules_encoder.append(EncodingLayer(
+                dim,
+                in_channels=cin,
+                out_channels=cout,
+                kernel_size=kernel_size,
+                stride=stride,
+                activation=activation,
+                batch_norm=bn,
+                residual=residual
+            ))
+        modules['encoder'] = tnn.ModuleList(modules_encoder)
+
+        # --- bottleneck ------------------------------------------
+        cin = encoder[-1]
+        cout = decoder[0]
+        cout = [encoder[-1]] * (conv_per_layer - 1) + [cout]
+        modules['bottleneck'] = DecodingLayer(
+            dim,
+            in_channels=cin,
+            out_channels=cout,
+            kernel_size=kernel_size,
+            stride=stride,
+            activation=activation,
+            batch_norm=batch_norm,
+            residual=residual
+        )
+
+        # --- decoder ------------------------------------------
+        modules_decoder = []
+        *encoder, bottleneck = encoder
+        for n in range(len(decoder) - 1):
+            cin = decoder[n] + encoder[-n - 1]
+            cout = decoder[n + 1]
+            cout = [decoder[n]] * (conv_per_layer - 1) + [cout]
+            modules_decoder.append(DecodingLayer(
+                dim,
+                in_channels=cin,
+                out_channels=cout,
+                kernel_size=kernel_size,
+                stride=stride,
+                activation=activation,
+                batch_norm=batch_norm,
+                residual=residual
+            ))
+        modules['decoder'] = tnn.ModuleList(modules_decoder)
+
+        # --- physics subnet -------------------------------------------
+        modules['subnet'] = tnn.Sequential(
+            tnn.Linear(meta_dim, 10),
+            tnn.ReLU(),
+            tnn.Linear(10, np.prod(patch_size)),
+            tnn.ReLU()
+        )
+
+        # --- head -----------------------------------------------
+        cin = decoder[-1] + in_channels + 1
+        cout = [decoder[-1]] * (conv_per_layer - 1)
+        for s in stack:
+            cout += [s] * conv_per_layer
+        if cout:
+            stk = StackedConv(
+                dim,
+                in_channels=cin,
+                out_channels=cout,
+                kernel_size=kernel_size,
+                activation=activation,
+                batch_norm=batch_norm,
+                residual=residual
+            )
+            modules['stack'] = stk
+            last_stack = cout[-1]
+        else:
+            modules['stack'] = Cat()
+            last_stack = cin
+
+        final = Conv(dim, last_stack, out_channels,
+                    kernel_size=kernel_size,
+                    batch_norm=batch_norm,
+                    activation=final_activation,
+                    padding='auto')
+        modules['final'] = final
+
+        super().__init__(modules)
+
+    def forward(self, x, meta=None, return_feat=False):
+        """
+
+        Parameters
+        ----------
+        x : (batch, in_channels, *spatial) tensor
+            Input tensor
+        return_feat : bool, default=False
+            Return the last features before the final convolution.
+
+        Returns
+        -------
+        x : (batch, out_channels, *spatial) tensor
+            Output tensor
+        f : (batch, decoder[-1], *spatial) tensor, if `return_feat`
+            Output features
+
+        """
+
+        if self.hyper == True:
+            if meta==None:
+                raise RuntimeError('No meta-data provided.')
+
+        buffers = []
+        if self.fusion_depth:
+            if self.hyper:
+                buffers.append(self.group[0](x, meta))
+            else:
+                buffers.append(self.group[0](x))
+        else:
+            buffers.append(x)
+
+        if self.hyper:
+            x = self.first(x, meta)
+        else:
+            x = self.first(x)
+
+        # encoder
+        for i, layer in enumerate(self.encoder):
+            x, buffer = layer(x, return_last=True)
+            buffers.append(buffer)
+
+        pad = self.get_padding(buffers[-1].shape, x.shape, self.bottleneck)
+
+        x = self.bottleneck(x, output_padding=pad)
+
+        # decoder
+        for layer in self.decoder:
+            buffer = buffers.pop()
+            pad = self.get_padding(buffers[-1].shape, x.shape, layer)
+            x = layer(x, buffer, output_padding=pad)
+
+        phys = self.subnet(meta)
+        phys = phys.view(-1, 1, *self.patch_size)
+        x = self.stack(x, buffers.pop(), phys)
+        f = x if return_feat else None
+        x = self.final(x)
+        return (x, f) if return_feat else x
 
     def get_padding(self, outshape, inshape, layer):
         outshape = outshape[2:]
