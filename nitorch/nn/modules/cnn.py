@@ -339,56 +339,56 @@ class Attention(tnn.ModuleList):
         super().__init__()
 
         if dim==1:
-            self.gate_weight = nn.Sequential(
-            nn.Conv1d(decoder_channels, intermediate_channels, kernel_size=1),
-            nn.BatchNorm1d(intermediate_channels)
+            self.gate_weight = tnn.Sequential(
+            tnn.Conv1d(decoder_channels, intermediate_channels, kernel_size=1),
+            tnn.BatchNorm1d(intermediate_channels)
         )
         elif dim==2:
-            self.gate_weight = nn.Sequential(
-                nn.Conv2d(decoder_channels, intermediate_channels, kernel_size=1),
-                nn.BatchNorm2d(intermediate_channels)
+            self.gate_weight = tnn.Sequential(
+                tnn.Conv2d(decoder_channels, intermediate_channels, kernel_size=1),
+                tnn.BatchNorm2d(intermediate_channels)
         )
         elif dim==3:
-            self.gate_weight = nn.Sequential(
-            nn.Conv3d(decoder_channels, intermediate_channels, kernel_size=1),
-            nn.BatchNorm3d(intermediate_channels)
+            self.gate_weight = tnn.Sequential(
+            tnn.Conv3d(decoder_channels, intermediate_channels, kernel_size=1),
+            tnn.BatchNorm3d(intermediate_channels)
         )
 
         if dim==1:
-            self.activation_weight = nn.Sequential(
-            nn.Conv1d(encoder_channels_channels, intermediate_channels, kernel_size=1),
-            nn.BatchNorm1d(intermediate_channels)
+            self.activation_weight = tnn.Sequential(
+            tnn.Conv1d(encoder_channels_channels, intermediate_channels, kernel_size=1),
+            tnn.BatchNorm1d(intermediate_channels)
         )
         elif dim==2:
-            self.activation_weight = nn.Sequential(
-            nn.Conv2d(encoder_channels_channels, intermediate_channels, kernel_size=1),
-            nn.BatchNorm2d(intermediate_channels)
+            self.activation_weight = tnn.Sequential(
+            tnn.Conv2d(encoder_channels_channels, intermediate_channels, kernel_size=1),
+            tnn.BatchNorm2d(intermediate_channels)
         )
         elif dim==3:
-            self.activation_weight = nn.Sequential(
-            nn.Conv3d(encoder_channels_channels, intermediate_channels, kernel_size=1),
-            nn.BatchNorm3d(intermediate_channels)
+            self.activation_weight = tnn.Sequential(
+            tnn.Conv3d(encoder_channels_channels, intermediate_channels, kernel_size=1),
+            tnn.BatchNorm3d(intermediate_channels)
         )
 
-        self.relu = nn.ReLU(inplace=True)
+        self.relu = tnn.ReLU(inplace=True)
 
         if dim==1:
-            self.psi = nn.Sequential(
-            nn.Conv1d(intermediate_channels, 1, kernel_size=1),
-            nn.BatchNorm1d(1),
-            nn.Sigmoid()
+            self.psi = tnn.Sequential(
+            tnn.Conv1d(intermediate_channels, 1, kernel_size=1),
+            tnn.BatchNorm1d(1),
+            tnn.Sigmoid()
         )
         elif dim==2:
-            self.psi = nn.Sequential(
-            nn.Conv2d(intermediate_channels, 1, kernel_size=1),
-            nn.BatchNorm2d(1),
-            nn.Sigmoid()
+            self.psi = tnn.Sequential(
+            tnn.Conv2d(intermediate_channels, 1, kernel_size=1),
+            tnn.BatchNorm2d(1),
+            tnn.Sigmoid()
         )
         elif dim==3:
-            self.psi = nn.Sequential(
-            nn.Conv3d(intermediate_channels, 1, kernel_size=1),
-            nn.BatchNorm3d(1),
-            nn.Sigmoid()
+            self.psi = tnn.Sequential(
+            tnn.Conv3d(intermediate_channels, 1, kernel_size=1),
+            tnn.BatchNorm3d(1),
+            tnn.Sigmoid()
         )
 
     def forward(self, x, x_cat=None):
