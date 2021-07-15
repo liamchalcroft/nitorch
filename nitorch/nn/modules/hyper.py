@@ -288,8 +288,10 @@ class HyperConv(tnn.Module):
         
         for block in self.blocks:
             block = block.to(device)
+            print('Shape in: ', meta.shape)
             meta = block(meta)
             meta = self.meta_act(meta)
+            print('Shape out: ', meta.shape)
 
         weight = self.head_w(meta)
 
