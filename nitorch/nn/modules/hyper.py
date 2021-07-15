@@ -48,7 +48,7 @@ class HyperGroupNorm(tnn.Module):
     def __init__(self,
         in_channels,
         meta_dim,
-        meta_depth=1,
+        meta_depth=2,
         meta_act=None):
 
         """
