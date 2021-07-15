@@ -2801,7 +2801,7 @@ class GroupNet(tnn.Sequential):
         cin = encoder[-1]
         cout = decoder[0]
         cout = [encoder[-1]] * (conv_per_layer - 1) + [cout]
-        if hyper and not fusion_depth:
+        if hyper and not isinstance(fusion_depth, int):
             modules['bottleneck'] = HyperStack(
                 dim,
                 in_channels=cin,
@@ -2839,7 +2839,7 @@ class GroupNet(tnn.Sequential):
                 cin = decoder[n] + encoder[-n - 1]
             cout = decoder[n + 1]
             cout = [decoder[n]] * (conv_per_layer - 1) + [cout]
-            if hyper and not fusion_depth:
+            if hyper and not isinstance(fusion_depth, int):
                 modules_decoder.append(HyperStack(
                     dim,
                     in_channels=cin,
@@ -2873,7 +2873,7 @@ class GroupNet(tnn.Sequential):
         for s in stack:
             cout += [s] * conv_per_layer
         if cout:
-            if hyper and not fusion_depth:
+            if hyper and not isinstance(fusion_depth, int):
                 stk = HyperStack(
                     dim,
                     in_channels=cin,
@@ -2900,7 +2900,7 @@ class GroupNet(tnn.Sequential):
             modules['stack'] = Cat()
             last_stack = cin
 
-        if hyper and not fusion_depth:
+        if hyper and not isinstance(fusion_depth, int):
             final = HyperConv(
                         dim,
                         in_channels=last_stack,
