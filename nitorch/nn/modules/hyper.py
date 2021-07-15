@@ -10,6 +10,7 @@ import numpy as np
 from .base import nitorchmodule
 from nitorch.core.py import make_list, make_tuple
 from nitorch.core import utils
+from .conv import _guess_output_shape
 
 
 _native_padding_mode = ('zeros', 'reflect', 'replicate', 'circular')
@@ -340,6 +341,47 @@ class HyperConv(tnn.Module):
 
         return x
 
+    def shape(self, x):
+        """Compute output shape of the equivalent ``forward`` call.
+
+        Parameters
+        ----------
+        x : tuple or (batch, in_channel, *in_spatial) tensor
+            Input tensor or its shape
+
+        Returns
+        -------
+        shape : tuple[int]
+            Output shape
+
+        """
+        if torch.is_tensor(x):
+            inshape = tuple(x.shape)
+        else:
+            inshape = x
+        
+        kernel_size = make_tuple(self.kernel_size, self.dim)
+
+        stride = make_tuple(self.stride, self.dim)
+        output_padding = make_tuple(self.output_padding, self.dim)
+        dilation = make_tuple(self.dilation, self.dim)
+
+        if self.padding == 'auto':
+            padding = [((k-1)*d)//2 for k, d in zip(kernel_size, dilation)]
+        padding = make_tuple(padding, self.dim)
+
+        shape = _guess_output_shape(
+            inshape, self.dim,
+            kernel_size=kernel_size,
+            stride=stride,
+            dilation=dilation,
+            padding=padding,
+            output_padding=output_padding,
+            transposed=False)
+        shape = list(shape)
+        shape[1] = self.out_channels
+        return tuple(shape)
+
 
 @nitorchmodule
 class HyperConvTranspose(tnn.Module):
@@ -550,6 +592,47 @@ class HyperConvTranspose(tnn.Module):
             x = self.activation(x)
 
         return x
+
+    def shape(self, x):
+        """Compute output shape of the equivalent ``forward`` call.
+
+        Parameters
+        ----------
+        x : tuple or (batch, in_channel, *in_spatial) tensor
+            Input tensor or its shape
+
+        Returns
+        -------
+        shape : tuple[int]
+            Output shape
+
+        """
+        if torch.is_tensor(x):
+            inshape = tuple(x.shape)
+        else:
+            inshape = x
+        
+        kernel_size = make_tuple(self.kernel_size, self.dim)
+
+        stride = make_tuple(self.stride, self.dim)
+        output_padding = make_tuple(self.output_padding, self.dim)
+        dilation = make_tuple(self.dilation, self.dim)
+
+        if self.padding == 'auto':
+            padding = [((k-1)*d)//2 for k, d in zip(kernel_size, dilation)]
+        padding = make_tuple(padding, self.dim)
+
+        shape = _guess_output_shape(
+            inshape, self.dim,
+            kernel_size=kernel_size,
+            stride=stride,
+            dilation=dilation,
+            padding=padding,
+            output_padding=output_padding,
+            transposed=True)
+        shape = list(shape)
+        shape[1] = self.out_channels
+        return tuple(shape)
         
 
 @nitorchmodule
@@ -740,3 +823,11 @@ class HyperStack(tnn.Module):
                 x = layer(x, meta)
 
         return (x, last) if return_last else x
+
+    def shape(self, x):
+        if torch.is_tensor(x):
+            x = tuple(x.shape)
+        for layer in reversed(self):
+            if isinstance(layer, (HyperConv, HyperConvTranspose)):
+                x = layer.shape(x)
+        return x
