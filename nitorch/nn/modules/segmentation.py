@@ -1753,7 +1753,7 @@ def warp_label(label, grid):
         u_labels = label.unique()
         n_labels = len(u_labels)
         label_w = torch.zeros((n_batch, n_labels, ) + tuple(label.shape[2:]),
-            device=x.device, dtype=torch.float32)
+            device=label.device, dtype=torch.float32)
         for i, l in enumerate(u_labels):
             label_w[..., i, ...] = label == l
     else:

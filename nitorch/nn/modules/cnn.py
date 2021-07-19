@@ -356,17 +356,17 @@ class Attention(tnn.ModuleList):
 
         if dim==1:
             self.activation_weight = tnn.Sequential(
-            tnn.Conv1d(encoder_channels_channels, intermediate_channels, kernel_size=1),
+            tnn.Conv1d(encoder_channels, intermediate_channels, kernel_size=1),
             tnn.BatchNorm1d(intermediate_channels)
         )
         elif dim==2:
             self.activation_weight = tnn.Sequential(
-            tnn.Conv2d(encoder_channels_channels, intermediate_channels, kernel_size=1),
+            tnn.Conv2d(encoder_channels, intermediate_channels, kernel_size=1),
             tnn.BatchNorm2d(intermediate_channels)
         )
         elif dim==3:
             self.activation_weight = tnn.Sequential(
-            tnn.Conv3d(encoder_channels_channels, intermediate_channels, kernel_size=1),
+            tnn.Conv3d(encoder_channels, intermediate_channels, kernel_size=1),
             tnn.BatchNorm3d(intermediate_channels)
         )
 
@@ -398,7 +398,7 @@ class Attention(tnn.ModuleList):
         x = self.activation_weight(x_cat)
         x = self.relu(x + g)
         x = self.psi(x)
-        return x * cat
+        return x * x_cat
 
 
 @nitorchmodule
@@ -1286,6 +1286,7 @@ class Discriminator(tnn.Sequential):
 
             if not channels:
                 channels = (512, 256, 128)
+            layers = []
             for i in len(-1, channels):
                 if i == -1:
                     cin = int(np.prod(in_shape))
@@ -3633,7 +3634,7 @@ class HyperCycleSegNet(tnn.Sequential):
         self.fusion_depth = fusion_depth
         self.delta_map = delta_map
         if not gan_channels:
-            gan_channels = input_channels
+            gan_channels = in_channels
 
         # defaults
         conv_per_layer = max(1, conv_per_layer)
