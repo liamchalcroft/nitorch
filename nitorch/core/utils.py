@@ -4,23 +4,69 @@ import torch
 import torch.nn.functional as F
 from . import py
 from .py import make_list, make_tuple
-from .constants import inf
+from .constants import inf, eps
 from .dtypes import as_torch as dtype_astorch
 from . import dtypes
+from nitorch._C.grid import GridCount, GridPull
 import numbers
 import os
 import numpy as np
 import random
 
 
+def _compare_versions(version1, mode, version2):
+    for v1, v2 in zip(version1, version2):
+        if mode in ('gt', '>'):
+            if v1 > v2:
+                return True
+            elif v1 < v2:
+                return False
+        elif mode in ('ge', '>='):
+            if v1 > v2:
+                return True
+            elif v1 < v2:
+                return False
+        elif mode in ('lt', '<'):
+            if v1 < v2:
+                return True
+            elif v1 > v2:
+                return False
+        elif mode in ('le', '<='):
+            if v1 < v2:
+                return True
+            elif v1 > v2:
+                return False
+    if mode in ('gt', 'lt', '>', '<'):
+        return False
+    else:
+        return True
+
+
+def torch_version(mode, version):
+    """Check torch version
+    Parameters
+    ----------
+    mode : {'<', '<=', '>', '>='}
+    version : tuple[int]
+    Returns
+    -------
+    True if "torch.version <mode> version"
+    """
+    current_version, *cuda_variant = torch.__version__.split('+')
+    current_version = current_version.split('.')
+    current_version = (int(current_version[0]),
+                       int(current_version[1]),
+                       int(current_version[2]))
+    version = py.make_list(version)
+    return _compare_versions(current_version, mode, version)
+
+
 def reproducible(seed=1234):
     """Ensure reproducible results.
-
     Parameters
     ----------
     seed : int, default=1234
         Seed for random number generators.
-
     """	
     random.seed(seed)
     np.random.seed(seed)
@@ -32,11 +78,9 @@ def reproducible(seed=1234):
 
 def as_tensor(input, dtype=None, device=None):
     """Convert object to tensor.
-
     This function expands ``torch.as_tensor`` by accepting nested lists
     of tensors. It works by recursively stacking elements of the input
     list. It is probably much slower than ``torch.as_tensor``.
-
     Parameters
     ----------
     input : tensor_like
@@ -45,12 +89,10 @@ def as_tensor(input, dtype=None, device=None):
         Output data type.
     device : torch.device, optional
         Output device
-
     Returns
     -------
     output : tensor
         Output tensor.
-
     """
     # TODO: if torch >= 1.6, use` torch.as_tensor`
     #   I have to clean uses of `utils.as_tensor` first because the
@@ -75,7 +117,6 @@ def as_tensor(input, dtype=None, device=None):
 def make_vector(input, n=None, crop=True, *args, 
                 dtype=None, device=None, **kwargs):
     """Ensure that the input is a (tensor) vector and pad/crop if necessary.
-
     Parameters
     ----------
     input : scalar or sequence or generator
@@ -91,12 +132,10 @@ def make_vector(input, n=None, crop=True, *args,
         Output data type.
     device : torch.device, optional
         Output device
-
     Returns
     -------
     output : tensor
         Output vector.
-
     """
     input = as_tensor(input, dtype=dtype, device=device).flatten()
     if n is None:
@@ -118,53 +157,56 @@ def make_vector(input, n=None, crop=True, *args,
 
 def unsqueeze(input, dim=0, ndim=1):
     """Adds singleton dimensions to a tensor.
-
     This function expands `torch.unsqueeze` with additional options.
-
     Parameters
     ----------
     input : tensor_like
         Input tensor.
-    dim : int or list[int], default=0
-        Position(s) at which to insert singleton dimensions.
-    ndim : int or list[int], default=1
-        Number of singleton dimensions inserted in each position.
-
+    dim : int, default=0
+        Position at which to insert singleton dimensions.
+    ndim : int, default=1
+        Number of singleton dimensions to insert.
     Returns
     -------
     output : tensor
         Tensor with additional singleton dimensions.
     """
+    for _ in range(ndim):
+        input = torch.unsqueeze(input, dim)
+    return input
 
-    if not isinstance(dim, (list, tuple)):
-        dim = [dim]
-    if not isinstance(ndim, (list, tuple)):
-        ndim = [ndim]
-    ndim = make_list(ndim, len(dim))
-    extra_dims = 0
-    for d, nd in zip(dim, ndim):
-        # FIXME: does not work when inputs are lists
-        d += extra_dims
-        for _ in range(nd):
-            input = torch.unsqueeze(input, min(d, input.dim()) if d > 0 else
-                                           max(d, -(input.dim()+1)))
-        extra_dims += nd
+
+def squeeze(input, dim=0, ndim=1):
+    """Removes singleton dimensions to a tensor.
+    This function expands `torch.squeeze` with additional options.
+    Parameters
+    ----------
+    input : tensor_like
+        Input tensor.
+    dim : int, default=0
+        Position at which to drop singleton dimensions.
+    ndim : int, default=1
+        Number of singleton dimensions to drop.
+    Returns
+    -------
+    output : tensor
+        Tensor with singleton dimensions removed.
+    """
+    for _ in range(ndim):
+        input = torch.squeeze(input, dim)
     return input
 
 
 def invert_permutation(perm):
     """Return the inverse of a permutation
-
     Parameters
     ----------
     perm : (..., N) tensor_like
         Permutations. A permutation is a shuffled set of indices.
-
     Returns
     -------
     iperm : (..., N) tensor
         Inverse permutation.
-
     Examples
     --------
     >>> import torch
@@ -174,7 +216,6 @@ def invert_permutation(perm):
     >>> permuted_a = a[perm]
     >>> recovered_a = permuted_a[invert_permutation(perm)]
     >>> assert((a == recovered_a).all())
-
     """
     perm = torch.as_tensor(perm)
     shape = perm.shape
@@ -191,7 +232,6 @@ def invert_permutation(perm):
 
 def shiftdim(x, n=None):
     """Shift the dimensions of x by n.
-
     Parameters
     ----------
         x : torch.Tensor
@@ -205,14 +245,12 @@ def shiftdim(x, n=None):
             * When N is None, `shiftdim` removes all leading singleton
               dimensions. The number of removed dimensions is returned
               as well.
-
     Returns
     -------
         x : torch.Tensor
             Output tensor.
         n : int, if n is None
             Number of removed dimensions
-
     """
     if n is None:
         shape = torch.as_tensor(x.size())
@@ -234,11 +272,9 @@ def shiftdim(x, n=None):
 
 def movedim(input, source, destination):
     """Moves the position of one or more dimensions
-
     Other dimensions that are not explicitly moved remain in their
     original order and appear at the positions not specified in
     destination.
-
     Parameters
     ----------
     input : tensor
@@ -247,18 +283,15 @@ def movedim(input, source, destination):
         Initial positions of the dimensions
     destination : int or sequence[int]
         Output positions of the dimensions.
-
         If a single destination is provided:
         - if it is negative, the last source dimension is moved to
           `destination` and all other source dimensions are moved to its left.
         - if it is positive, the first source dimension is moved to
           `destination` and all other source dimensions are moved to its right.
-
     Returns
     -------
     output : tensor
         Tensor with moved dimensions.
-
     """
     input = torch.as_tensor(input)
     dim = input.dim()
@@ -277,9 +310,11 @@ def movedim(input, source, destination):
     source = [dim + src if src < 0 else src for src in source]
     destination = [dim + dst if dst < 0 else dst for dst in destination]
     if len(set(source)) != len(source):
-        raise ValueError('Expected source positions to be unique')
+        raise ValueError(f'Expected source positions to be unique but got '
+                         f'{source}')
     if len(set(destination)) != len(destination):
-        raise ValueError('Expected destination positions to be unique')
+        raise ValueError(f'Expected destination positions to be unique but got '
+                         f'{destination}')
 
     # compute permutation
     positions_in = list(range(dim))
@@ -297,7 +332,6 @@ def movedim(input, source, destination):
 
 def to(*args, dtype=None, device=None):
     """Move/convert to a common dtype or device.
-
     Parameters
     ----------
     *args : tensor_like
@@ -306,59 +340,49 @@ def to(*args, dtype=None, device=None):
         Target data type
     device : str or torch.device, optional
         Target device
-
     Returns
     -------
     *args : tensor_like
         Converted tensors
-
     """
     if len(args) == 1:
         return torch.as_tensor(args[0], dtype=dtype, device=device)
     else:
         return tuple(torch.as_tensor(arg, dtype=dtype, device=device)
-                     for arg in args)
+                     if arg is not None else arg for arg in args)
 
 
-def to_max_backend(*args, force_float=False):
+def to_max_backend(*args, force_float=False, dtype=None, device=None):
     """Move to a common dtype and device.
-
     See `max_dtype` and `max_device`.
-
     Parameters
     ----------
     *args : tensor_like
     force_float : bool, default=False
-
     Returns
     -------
     *args_to : tensor
-
     """
     if len(args) == 0:
         return
-    dtype = max_dtype(*args, force_float=force_float)
-    device = max_device(*args)
+    dtype = max_dtype(*args, dtype, force_float=force_float)
+    device = max_device(*args, device)
     if len(args) == 1:
         return torch.as_tensor(args[0], dtype=dtype, device=device)
     else:
         return tuple(torch.as_tensor(arg, dtype=dtype, device=device)
-                     for arg in args)
+                     if arg is not None else arg for arg in args)
 
 
 def to_max_device(*args):
     """Move to a common device.
-
     See `max_device`.
-
     Parameters
     ----------
     *args : tensor_like
-
     Returns
     -------
     *args_to : tensor
-
     """
     if len(args) == 0:
         return
@@ -370,53 +394,64 @@ def to_max_device(*args):
                      for arg in args)
 
 
+def to_max_dtype(*args):
+    """Move to a common data type.
+    See `max_dtype`.
+    Parameters
+    ----------
+    *args : tensor_like
+    Returns
+    -------
+    *args_to : tensor
+    """
+    if len(args) == 0:
+        return
+    dtype = max_dtype(*args)
+    if len(args) == 1:
+        return torch.as_tensor(args[0], dtype=dtype)
+    else:
+        return tuple(torch.as_tensor(arg, dtype=dtype)
+                     for arg in args)
+
+
 def backend(x):
     """Return the backend (dtype and device) of a tensor
-
     Parameters
     ----------
     x : tensor
-
     Returns
     -------
     dict with keys 'dtype' and 'device'
-
     """
     return dict(dtype=x.dtype, device=x.device)
 
 
-def max_backend(*args):
+def max_backend(*args, dtype=None, device=None):
     """Get the (max) dtype and device.
-
     Parameters
     ----------
     args : tensors
-
     Returns
     -------
     dict with keys 'dtype' and 'device'
-
     """
-    return dict(dtype=max_dtype(*args), device=max_device(*args))
+    return dict(dtype=max_dtype(*args, dtype),
+                device=max_device(*args, device))
 
 
 def max_device(*args):
     """Find a common device for all inputs.
-
     If at least one input object is on a CUDA device:
         * if all cuda object are on the same cuda device, return it
         * if some objects are on different cuda devices, return
           `device('cuda')` without an index.
     Else, return device('cpu') or None.
-
     Parameters
     ----------
     *args : tensor_like or device_like
-
     Returns
     -------
     device : torch.device
-
     """
     from .optionals import numpy as np
     is_array = lambda x: (isinstance(x, np.ndarray) if np else False)
@@ -467,9 +502,7 @@ def max_device(*args):
 
 def max_dtype(*args, force_float=False):
     """Find the maximum data type from a series of inputs.
-
     The returned dtype is the best one to use for upcasting the objects.
-
         * Tensors and arrays have priority python objects.
         * Tensors and arrays with non-null dimensionality have priority
           over scalars.
@@ -482,16 +515,13 @@ def max_dtype(*args, force_float=False):
           floating point data type is returned.
         * If `force_float is True`, a floating point data type is returned
           even if all input objects have an integer data type.
-
     Parameters
     ----------
     *args : tensor_like or type_like
     force_float : bool, default=False
-
     Returns
     -------
     dtype : torch.dtype
-
     """
     from .optionals import numpy as np
     is_array = lambda x: (isinstance(x, np.ndarray) if np else False)
@@ -593,18 +623,15 @@ def same_storage(x, y):
 
 def broadcast_backward(input, shape):
     """Sum a tensor across dimensions that have been broadcasted.
-
     Parameters
     ----------
     input : tensor
         Tensor with broadcasted shape.
     shape : tuple[int]
         Original shape.
-
     Returns
     -------
     output : tensor with shape `shape`
-
     """
     input_shape = input.shape
     dim = len(input_shape)
@@ -631,11 +658,9 @@ def requires_grad(ctx, name):
 
 def slice_tensor(x, index, dim=None):
     """Index a tensor along one or several dimensions.
-
     This function is relatively similar to `torch.index_select`, except
     that it uses the native indexing mechanism and can therefore
     returns a tensor that use the same storage as the input tensor.
-
     Parameters
     ----------
     x : tensor
@@ -650,13 +675,10 @@ def slice_tensor(x, index, dim=None):
         Dimensions to index. If it is a list, `index` *must* be a tuple.
         By default, the last `n` dimensions (where `n` is the number of
         indices in `index`) are used.
-
-
     Returns
     -------
     y : tensor
         Output tensor.
-
     """
     # format (dim, index) as (list, tuple) with same length
     if not isinstance(index, tuple):
@@ -682,19 +704,16 @@ def slice_tensor(x, index, dim=None):
 
 def max_shape(*shapes, side='left'):
     """Compute maximum (= broadcasted) shape.
-
     Parameters
     ----------
     *shapes : sequence[int]
         any number of shapes
     side : {'left', 'right'}, default='left'
         Side to add singleton dimensions.
-
     Returns
     -------
     shape : tuple[int]
         Maximum shape
-
     """
     def error(s0, s1):
         raise ValueError('Incompatible shapes for broadcasting: {} and {}.'
@@ -722,24 +741,20 @@ def max_shape(*shapes, side='left'):
 
 def expanded_shape(*shapes, side='left'):
     """Expand input shapes according to broadcasting rules
-
     Parameters
     ----------
     *shapes : sequence[int]
         Input shapes
     side : {'left', 'right'}, default='left'
         Side to add singleton dimensions.
-
     Returns
     -------
     shape : tuple[int]
         Output shape
-
     Raises
     ------
     ValueError
         If shapes are not compatible for broadcast.
-
     """
     def error(s0, s1):
         raise ValueError('Incompatible shapes for broadcasting: {} and {}.'
@@ -767,7 +782,6 @@ def expanded_shape(*shapes, side='left'):
 
 def expand(*tensors, side='left', dry_run=False, **kwargs):
     """Broadcast to a given shape.
-
     Parameters
     ----------
     *tensors : tensor
@@ -779,21 +793,17 @@ def expand(*tensors, side='left', dry_run=False, **kwargs):
         Side to add singleton dimensions.
     dry_run : bool, default=False
         Return the broadcasted shape instead of the broadcasted tensors.
-
     Returns
     -------
     *tensors : tensors 'reshaped' to shape.
-
     Raises
     ------
     ValueError
         If shapes are not compatible for broadcast.
-
     .. warning::
         This function makes use of zero strides, so more than
         one output values can point to the same memory location.
         It is advised not to write in these tensors.
-
     """
     if 'shape' in kwargs:
         shape = kwargs['shape']
@@ -865,7 +875,6 @@ def _bound_reflect1(i, n):
 
 def ensure_shape(inp, shape, mode='constant', value=0, side='post'):
     """Pad/crop a tensor so that it has a given shape
-
     Parameters
     ----------
     inp : tensor
@@ -878,12 +887,10 @@ def ensure_shape(inp, shape, mode='constant', value=0, side='post'):
         Value for mode 'constant'
     side : {'pre', 'post', 'both'}, default='post'
         Side to pad
-
     Returns
     -------
     out : tensor
         Padded tensor with shape `shape`
-
     """
     inp = torch.as_tensor(inp)
     shape = make_list(shape)
@@ -936,7 +943,6 @@ _modifiers['dct1'] = _modifiers['reflect1']
 
 def pad(inp, padsize, mode='constant', value=0, side=None):
     """Pad a tensor.
-
     This function is a bit more generic than torch's native pad, but probably
     a bit slower:
         - works with any input type
@@ -945,20 +951,17 @@ def pad(inp, padsize, mode='constant', value=0, side=None):
         - implements additional padding modes
     When used with defaults parameters (side=None), it behaves
     exactly like `torch.nn.functional.pad`
-
     Boundary modes are:
         - 'circular' or 'dft'
         - 'reflect' or 'reflect1' or 'dct1'
         - 'reflect2' or 'dct2'
         - 'replicate'
         - 'constant'
-
     Side modes are 'pre', 'post', 'both' or None. If side is not None,
     inp.dim() values (or less) should be provided. If side is None,
     twice as many values should be provided, indicating different padding sizes
     for the 'pre' and 'post' sides. If the number of padding values is less
     than the dimension of the input tensor, zeros are prepended.
-
     Parameters
     ----------
     inp : tensor_like
@@ -973,15 +976,13 @@ def pad(inp, padsize, mode='constant', value=0, side=None):
         Use padsize to pad on left side ('pre'), right side ('post') or
         both sides ('both'). If None, the padding side for the left and
         right sides should be provided in alternate order.
-
     Returns
     -------
     tensor
         Padded tensor.
-
     """
     # Argument checking
-    if mode not in tuple(_bounds.keys()) + ('constant',):
+    if mode not in tuple(_bounds.keys()) + ('constant', 'zero', 'zeros'):
         raise ValueError('Padding mode should be one of {}. Got {}.'
                          .format(tuple(_bounds.keys()) + ('constant',), mode))
     padsize = tuple(padsize)
@@ -1012,7 +1013,7 @@ def pad(inp, padsize, mode='constant', value=0, side=None):
     padpost = torch.as_tensor(padpost)
 
     # Pad
-    if mode == 'zeros':
+    if mode in ('zero', 'zeros'):
         mode, value = ('constant', 0)
     if mode == 'constant':
         return _pad_constant(inp, padpre, padpost, value)
@@ -1023,16 +1024,14 @@ def pad(inp, padsize, mode='constant', value=0, side=None):
 
 
 def _pad_constant(inp, padpre, padpost, value):
-    # Uses torch.nn.functional.pad
-    # Convert pre and post to a single list
     padpre = padpre.tolist()
     padpost = padpost.tolist()
-    padding = padpre * 2
-    padding[1::2] = padpost[::-1]
-    padding[::2] = padpre[::-1]
-    # Apply padding
-    inp = F.pad(inp, padding, mode='constant', value=value)
-    return inp
+    new_shape = [s + pre + post
+                 for s, pre, post in zip(inp.shape, padpre, padpost)]
+    out = inp.new_full(new_shape, value)
+    slicer = [slice(pre, pre + s) for pre, s in zip(padpre, inp.shape)]
+    out[tuple(slicer)] = inp
+    return out
 
 
 def _pad_bound(inp, padpre, padpost, bound, modifier):
@@ -1049,7 +1048,6 @@ def _pad_bound(inp, padpre, padpost, bound, modifier):
 
 def channel2last(tensor):
     """Warps: Channel to Last dimension order.
-
     . Channel ordering is: (Batch, Channel, X, Y, Z)
     . Last ordering is: (Batch, X, Y, Z, Channel))
     """
@@ -1060,7 +1058,6 @@ def channel2last(tensor):
 
 def last2channel(tensor):
     """Warps: Last to Channel dimension order.
-
     . Channel ordering is: (Batch, Channel, X, Y, Z)
     . Last ordering is: (Batch, X, Y, Z, Channel))
     """
@@ -1071,7 +1068,6 @@ def last2channel(tensor):
 
 def isin(tensor, labels):
     """Returns a mask for elements that belong to labels
-
     Parameters
     ----------
     tensor : (*shape_tensor) tensor_like
@@ -1079,11 +1075,9 @@ def isin(tensor, labels):
     labels : (*shape_labels, nb_labels) tensor_like
         Labels.
         `shape_labels` and `shape_tensor` should be broadcastable.
-
     Returns
     -------
     mask : (*shape) tensor[bool]
-
     """
 
     tensor = torch.as_tensor(tensor)
@@ -1103,21 +1097,17 @@ def isin(tensor, labels):
 def ceil_pow(t, p=2.0, l=2.0, mx=None):
     """Ceils each element in vector t to the
     closest n that satisfies: l*p**n.
-
     This function is useful, for example, to ensure an image's dimensions
     work well in an encoding/decoding architecture.
-
     Parameters
     ----------
     t : (d, ), tensor
     p : float, default=2.0
     l : float, default=2.0
     mx : float, optional
-
     Returns
     ----------
     ct : (d, ), tensor
-
     """
     ct = t.clone()  # Do not modify in-place
     device = ct.device
@@ -1151,10 +1141,8 @@ def ceil_pow(t, p=2.0, l=2.0, mx=None):
 
 def sub2ind(subs, shape, out=None):
     """Convert sub indices (i, j, k) into linear indices.
-
     The rightmost dimension is the most rapidly changing one
     -> if shape == [D, H, W], the strides are therefore [H*W, W, 1]
-
     Parameters
     ----------
     subs : (D, ...) tensor_like
@@ -1165,7 +1153,6 @@ def sub2ind(subs, shape, out=None):
         first dimension of ``subs``.
     out : tensor, optional
         Output placeholder
-
     Returns
     -------
     ind : (...) tensor
@@ -1186,10 +1173,8 @@ def sub2ind(subs, shape, out=None):
 
 def ind2sub(ind, shape, out=None):
     """Convert linear indices into sub indices (i, j, k).
-
     The rightmost dimension is the most rapidly changing one
     -> if shape == [D, H, W], the strides are therefore [H*W, W, 1]
-
     Parameters
     ----------
     ind : tensor_like
@@ -1198,7 +1183,6 @@ def ind2sub(ind, shape, out=None):
         Size of each dimension.
     out : tensor, optional
         Output placeholder
-
     Returns
     -------
     subs : (D, ...) tensor
@@ -1222,7 +1206,6 @@ def ind2sub(ind, shape, out=None):
 
 def unfold(inp, kernel_size, stride=None, collapse=False):
     """Extract patches from a tensor.
-
     Parameters
     ----------
     inp : (..., *spatial) tensor
@@ -1233,14 +1216,12 @@ def unfold(inp, kernel_size, stride=None, collapse=False):
         Stride.
     collapse : bool, default=False
         Collapse the original spatial dimensions
-
     Returns
     -------
     out : (..., *spatial_out, *kernel_size) tensor
         Output tensor of patches.
         If `collapse`, the output spatial dimensions (`spatial_out`)
         are flattened.
-
     """
     inp = torch.as_tensor(inp)
     kernel_size = py.make_list(kernel_size)
@@ -1252,16 +1233,17 @@ def unfold(inp, kernel_size, stride=None, collapse=False):
         inp = inp.unfold(dimension=batch_dim+d, size=sz, step=st)
     if collapse:
         batch_shape = inp.shape[:-dim*2]
-        inp = inp.reshape([*batch_shape, -1, *kernel_size])
+        if collapse == 'view':
+            inp = inp.view([*batch_shape, -1, *kernel_size])
+        else:
+            inp = inp.reshape([*batch_shape, -1, *kernel_size])
     return inp
 
 
 def fold(inp, dim=None, stride=None, shape=None, collapsed=False,
          reduction='mean'):
     """Reconstruct a tensor from patches.
-
     .. warning: This function only works if `kernel_size <= 2*stride`.
-
     Parameters
     ----------
     inp : (..., *spatial, *kernel_size) tensor
@@ -1275,16 +1257,17 @@ def fold(inp, dim=None, stride=None, shape=None, collapsed=False,
         `stride` and `kernel_size`. If the output shape is larger than
         the computed shape, zero-padding is used.
         This parameter is mandatory if `collapsed = True`.
-    collapsed : bool, default=False
+    collapsed : 'view' or bool, default=False
         Whether the spatial dimensions are collapsed in the input tensor.
+        If 'view', use `view` instead of `reshape`, which will raise an
+        error instead of triggering a copy when dimensions cannot be
+        collapsed in a contiguous way.
     reduction : {'mean', 'sum', 'min', 'max'}, default='mean'
         Method to use to merge overlapping patches.
-
     Returns
     -------
     out : (..., *shape) tensor
         Folded tensor
-
     """
     def recon(x, stride):
         dim = len(stride)
@@ -1403,6 +1386,340 @@ def fold(inp, dim=None, stride=None, shape=None, collapsed=False,
     return out
 
 
+def histc(x, n=64, min=None, max=None, dim=None, keepdim=False,
+          order=1, bound='replicate', extrapolate=False, dtype=None):
+    """Batched + differentiable histogram computation
+    Parameters
+    ----------
+    x : tensor_like
+        Input tensor.
+    n : int, default=64
+        Number of bins.
+    min : float or tensor_like, optional
+        Left edge of the histogram.
+        Must be broadcastable to the input batch shape.
+    max : float or tensor_like, optional
+        Right edge of the histogram.
+        Must be broadcastable to the input batch shape.
+    dim : [sequence of] int, default=all
+        Dimensions along which to compute the histogram
+    keepdim : bool, default=False
+        Keep singleton dimensions.
+    order : {0..7}, default=1
+        B-spline order encoding the histogram
+    bound : bound_like, default='replicate'
+        Boundary condition (only used when order > 1 or extrapolate is True)
+    extrapolate : bool, default=False
+        If False, discard data points that fall outside of [min, max]
+        If True, use `bound` to assign them to a bin.
+    dtype : torch.dtype, optional
+        Output data type.
+        Default: same as x unless it is not a floating point type, then
+        `torch.get_default_dtype()`
+    Returns
+    -------
+    h : (..., n) tensor
+        Count histogram
+    """
+    # reshape as [batch, pool]]
+    x = torch.as_tensor(x)
+    if dim is None:
+        x = x.reshape([1, -1])
+        batch = []
+    else:
+        dim = py.make_list(dim)
+        odim = list(range(-len(dim), 0))
+        inshape = x.shape
+        x = movedim(x, dim, odim)
+        batch = x.shape[:-len(dim)]
+        pool = x.shape[-len(dim):]
+        x = x.reshape([-1, py.prod(pool)])
+
+    # compute limits
+    if min is None:
+        min = x.min(dim=-1, keepdim=True).values
+    else:
+        min = torch.as_tensor(min)
+        min = min.expand(batch).reshape([-1, 1])
+    if max is None:
+        max = x.max(dim=-1, keepdim=True).values
+    else:
+        max = torch.as_tensor(max)
+        max = max.expand(batch).reshape([-1, 1])
+
+    # convert intensities to coordinates
+    # (min -> -0.5  // max -> n-0.5)
+    if not dtypes.dtype(x.dtype).is_floating_point:
+        ftype = torch.get_default_dtype()
+        x = x.to(ftype)
+    x = x.clone()
+    x = x.mul_(n / (max - min)).add_(n / (1 - max / min)).sub_(0.5)
+
+    # push data into the histogram
+    if not extrapolate:
+        # hidden feature: tell pullpush to use +/- 0.5 tolerance when
+        # deciding if a coordinate is inbounds.
+        extrapolate = 2
+    h = GridCount.apply(x[:, :, None], [n], order, bound, extrapolate)[:, 0, ]
+
+    # reshape
+    h = h.to(dtype)
+    if keepdim:
+        oshape = list(inshape)
+        for d in dim:
+            oshape[d] = 1
+        oshape += [n]
+    else:
+        oshape = [*batch, n]
+    h = h.reshape(oshape)
+    return h
+
+
+def histc2(x, n=64, min=None, max=None, dim=None, keepdim=False,
+           order=1, bound='replicate', extrapolate=False, dtype=None):
+    """Batched + differentiable joint histogram computation
+    Parameters
+    ----------
+    x : (..., 2) tensor_like
+        Input tensor.
+    n : int or (int, int), default=64
+        Number of bins.
+    min : float or tensor_like, optional
+        Left edge of the histogram.
+        Must be broadcastable to (*batch, 2).
+    max : float or tensor_like, optional
+        Right edge of the histogram.
+        Must be broadcastable to (*batch, 2).
+    dim : [sequence of] int, default=all
+        Dimensions along which to compute the histogram
+    keepdim : bool, default=False
+        Keep singleton dimensions.
+    order : {0..7}, default=1
+        B-spline order encoding the histogram
+    bound : bound_like, default='replicate'
+        Boundary condition (only used when order > 1 or extrapolate is True)
+    extrapolate : bool, default=False
+        If False, discard data points that fall outside of [min, max]
+        If True, use `bound` to assign them to a bin.
+    dtype : torch.dtype, optional
+        Output data type.
+        Default: same as x unless it is not a floating point type, then
+        `torch.get_default_dtype()`
+    Returns
+    -------
+    h : (..., n) tensor
+        Count histogram
+    """
+    n = py.make_list(n, 2)
+
+    # reshape as [batch, pool, 2]]
+    x = torch.as_tensor(x)
+    bck = backend(x)
+    if dim is None:
+        x = x.reshape([1, -1, 2])
+        batch = []
+    else:
+        dim = py.make_list(dim)
+        if -1 in dim or (x.dim()-1) in dim:
+            raise ValueError('Cannot pool along last dimension')
+        odim = list(range(-len(dim)-1, -1))
+        inshape = x.shape
+        x = movedim(x, dim, odim)
+        batch = x.shape[:-len(dim)-1]
+        pool = x.shape[-len(dim)-1:-1]
+        x = x.reshape([-1, py.prod(pool), 2])
+
+    # compute limits
+    if min is None:
+        min = x.detach().min(dim=-2, keepdim=True).values
+    else:
+        min = torch.as_tensor(min, **bck)
+        min = min.expand([*batch, 2]).reshape([-1, 1, 2])
+    if max is None:
+        max = x.detach().max(dim=-2, keepdim=True).values
+    else:
+        max = torch.as_tensor(max, **bck)
+        max = max.expand([*batch, 2]).reshape([-1, 1, 2])
+
+    # convert intensities to coordinates
+    # (min -> -0.5  // max -> n-0.5)
+    if not dtypes.dtype(x.dtype).is_floating_point:
+        ftype = torch.get_default_dtype()
+        x = x.to(ftype)
+    x = x.clone()
+    nn = torch.as_tensor(n, dtype=x.dtype, device=x.device)
+    x = x.mul_(nn / (max - min)).add_(nn / (1 - max / min)).sub_(0.5)
+
+    # push data into the histogram
+    if not extrapolate:
+        # hidden feature: tell pullpush to use +/- 0.5 tolerance when
+        # deciding if a coordinate is inbounds.
+        extrapolate = 2
+    h = GridCount.apply(x[:, None], n, order, bound, extrapolate)[:, 0]
+
+    # reshape
+    h = h.to(dtype)
+    if keepdim:
+        oshape = list(inshape)
+        for d in dim:
+            oshape[d] = 1
+        oshape += n
+    else:
+        oshape = [*batch, *n]
+    h = h.reshape(oshape)
+    return h
+
+
+def _hist_to_quantile(hist, q):
+    """Compute quantiles from a cumulative histogram.
+    Parameters
+    ----------
+    hist : (B, K) tensor
+        Strictly monotonic cumulative histogram.
+        B = batch size, K = number of bins
+    q : (Q,) tensor
+        Quantiles to compute.
+        Q = number of quantiles.
+    Returns
+    -------
+    values : (B, Q) tensor
+        Quantile values, expressed in bins.
+        They can be converted to values by `vmin + values * bin_width`.
+    """
+    hist, q = to_max_backend(hist, q, force_float=True)
+    # compute the distance between discrete quantiles and target quantile
+    hist = hist[:, None, :] - q[None, :, None]
+    # find discrete quantile nearest to target quantile
+    tmp = hist.clone()
+    tmp[tmp < 0] = inf  # approach from below
+    delta1, binq = tmp.min(dim=-1)
+    # compute left weight (this is super ugly)
+    delta0 = hist.neg().gather(-1, (binq - 1).clamp_min_(0)[..., None])[..., 0]
+    delta0[binq == 0] = q.expand(delta0.shape)[binq == 0]
+    del hist
+    # compute interpolation weights
+    delta0, delta1 = (delta1 / (delta0 + delta1), delta0 / (delta0 + delta1))
+    # interpolate value
+    q = delta0 * binq + delta1 * (binq + 1)
+    return q
+
+
+def quantile(input, q, dim=None, keepdim=False, bins=None, *, out=None):
+    """Compute quantiles.
+    Parameters
+    ----------
+    input : tensor_like
+        Input Tensor.
+    q : float or (K,) tensor_like
+        Values in [0, 1]: quantiles to computes
+    dim : [sequence of] int, default=all
+        Dimensions to reduce
+    keepdim : bool, default=False
+        Whether to squeeze reduced dimensions.
+    bins : int, optional
+        Number of histogram bins to use for fast quantile computation.
+        By default: exact (but slow) computation using sorting.
+    out : tensor, optional
+        Output placeholder.
+    Returns
+    -------
+    quant : (..., [K]) tensor
+        Quantiles
+    """
+    def torch_is_recent():
+        version = torch.__version__.split('.')
+        version = (int(version[0]), int(version[1]))
+        return version[0] > 2 or (version[0] == 1 and version[1] >= 7)
+
+    input, q = to_max_backend(input, q)
+    dim = py.make_list(dim or [])
+    if torch_is_recent() and len(dim) < 2 and not bins:
+        dim = dim[0] if dim else None
+        return torch.quantile(input, q, dim=dim, keepdim=keepdim, out=out)
+
+    # ------------------
+    # our implementation
+    # ------------------
+
+    # reshape as (batch, pool)
+    inshape = input.shape
+    if dim is None:
+        input = input.reshape([1, -1])
+        batch = []
+    else:
+        dim = py.make_list(dim)
+        odim = list(range(-len(dim), 0))
+        input = movedim(input, dim, odim)
+        batch = input.shape[:-len(dim)]
+        pool = input.shape[-len(dim):]
+        input = input.reshape([-1, py.prod(pool)])
+
+    q_scalar = q.dim() == 0
+    q = q.reshape([-1]).clone()
+    if not bins:
+        # sort and sample
+        input, _ = input.sort(-1)
+        q = q.mul_(input.shape[-1]-1)
+        q = GridPull.apply(input[None], q[None, :, None], 1, 'replicate', 0)[0]
+    else:
+        # compute cumulative histogram
+        min = input.min(-1).values
+        max = input.max(-1).values
+        bin_width = (max-min)/bins
+        hist = histc(input, bins, dim=-1, min=min, max=max)
+        del max, input
+        hist += eps(hist.dtype)  # ensures monotonicity
+        hist = hist.cumsum(-1) / hist.sum(-1, keepdim=True)
+        hist[..., -1] = 1  # avoid rounding errors
+        # interpolate quantile value
+        q = _hist_to_quantile(hist, q)
+        q = min[:, None] + q * bin_width[:, None]
+
+    # reshape
+    if keepdim:
+        oshape = list(inshape)
+        for d in dim:
+            oshape[d] = 1
+        oshape += [q.shape[-1]]
+    else:
+        oshape = [*batch, q.shape[-1]]
+    q = q.reshape(oshape)
+    if q_scalar:
+        q = q.squeeze(-1)
+
+    if out:
+        out.reshape(q.shape).copy_(q)
+    return q
+
+
+class benchmark:
+    """Context manager for the convolution benchmarking utility
+    from pytorch.
+    When the benchmark value is True, each time a convolution is called
+    on a new input shape, several algorithms are performed and evaluated,
+    and the best one kept in memory. Therefore, benchmarking is beneficial
+    if and only if the (channel + spatial) shape of your input data is
+    constant.
+    Examples
+    --------
+    ```python
+    from nitorch.core.utils import benchmark
+    with benchmark(True):
+        train_my_model(model)
+    ```
+    """
+
+    def __init__(self, value=True):
+        self.do_benchmark = value
+
+    def __enter__(self):
+        self.prev_value = torch.backends.cudnn.benchmark
+        torch.backends.cudnn.benchmark = self.do_benchmark
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        torch.backends.cudnn.benchmark = self.prev_value
+
+
 def rubiks_shuffle(inp):
     """Takes tensor (..., *spatial, *kernel_size) and shuffles across spatial dims.
     Useful for pretraining via Rubik's Cube / Jigsaw method.
@@ -1421,34 +1738,3 @@ def rubiks_shuffle(inp):
         out = out[:,:,:,:,torch.randperm(inp.shape[4])]
 
     return out
-
-
-class benchmark:
-    """Context manager for the convolution benchmarking utility
-    from pytorch.
-
-    When the benchmark value is True, each time a convolution is called
-    on a new input shape, several algorithms are performed and evaluated,
-    and the best one kept in memory. Therefore, benchmarking is beneficial
-    if and only if the (channel + spatial) shape of your input data is
-    constant.
-
-    Examples
-    --------
-    ```python
-    from nitorch.core.utils import benchmark
-    with benchmark(True):
-        train_my_model(model)
-    ```
-
-    """
-
-    def __init__(self, value=True):
-        self.do_benchmark = value
-
-    def __enter__(self):
-        self.prev_value = torch.backends.cudnn.benchmark
-        torch.backends.cudnn.benchmark = self.do_benchmark
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        torch.backends.cudnn.benchmark = self.prev_value
