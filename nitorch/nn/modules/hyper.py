@@ -483,6 +483,8 @@ class HyperConvTranspose(tnn.Module):
 
         super().__init__()
 
+        self.in_channels = in_channels
+        self.out_channels = out_channels
         self.meta_dim = meta_dim
         self.dim = dim
         self.stride = stride
