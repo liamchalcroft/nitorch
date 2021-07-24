@@ -279,6 +279,8 @@ class HyperConv(tnn.Module):
         if self.bias:
             self.head_b = self.head_b.to(device)
 
+        print(x.shape, self.batch_norm.shape)
+
         if self.batch_norm:
             x = self.batch_norm(x, meta)
 
