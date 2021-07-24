@@ -230,7 +230,6 @@ class HyperConv(tnn.Module):
         self.bias = bias
         self.padding = padding
         self.batch_norm = batch_norm
-        self.activation = activation
         self.kernel_size = kernel_size
         self.dilation = dilation
         self.grouppool = grouppool
