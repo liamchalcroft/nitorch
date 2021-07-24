@@ -643,6 +643,7 @@ class HyperConvTranspose(tnn.Module):
             transposed=True)
         shape = list(shape)
         shape[1] = self.out_channels
+        print(shape)
         return tuple(shape)
         
 
