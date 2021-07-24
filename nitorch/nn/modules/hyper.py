@@ -253,11 +253,11 @@ class HyperConv(tnn.Module):
 
         # define output layers with shape of weights/bias
         if dim == 2:
-            self.shape = [out_channels, in_channels, kernel_size, kernel_size]
+            self.wshape = [out_channels, in_channels, kernel_size, kernel_size]
         elif dim == 3:
-            self.shape = [out_channels, in_channels, kernel_size, kernel_size, kernel_size]
+            self.wshape = [out_channels, in_channels, kernel_size, kernel_size, kernel_size]
 
-        self.head_w = tnn.Sequential(tnn.Linear(16*(2**meta_depth), np.prod(self.shape)), tnn.Tanh())
+        self.head_w = tnn.Sequential(tnn.Linear(16*(2**meta_depth), np.prod(self.wshape)), tnn.Tanh())
         if bias:
             self.head_b = tnn.Sequential(tnn.Linear(16*(2**meta_depth), out_channels), tnn.Tanh())
 
@@ -285,8 +285,8 @@ class HyperConv(tnn.Module):
         if padding == 'auto':
             padding = ((self.kernel_size-1)*self.dilation)//2
 
-        shape = self.shape.copy()
-        shape[0] *= np.prod(meta.shape[:2])
+        wshape = self.wshape.copy()
+        wshape[0] *= np.prod(meta.shape[:2])
         
         for block in self.blocks:
             block = block.to(device)
@@ -297,10 +297,10 @@ class HyperConv(tnn.Module):
 
         if self.grouppool==True:
             # weight = torch.mean(weight, dim=1)
-            shape[0] //= meta.shape[1]
-            shape[1] *= meta.shape[1]
+            wshape[0] //= meta.shape[1]
+            wshape[1] *= meta.shape[1]
             
-        weight = weight.view(shape)
+        weight = weight.view(wshape)
 
         if self.bias:
             bias = self.head_b(meta)
@@ -515,11 +515,11 @@ class HyperConvTranspose(tnn.Module):
 
         # define output layers with shape of weights/bias
         if dim == 2:
-            self.shape = [in_channels, out_channels, kernel_size, kernel_size]
+            self.wshape = [in_channels, out_channels, kernel_size, kernel_size]
         elif dim == 3:
-            self.shape = [in_channels, out_channels, kernel_size, kernel_size, kernel_size]
+            self.wshape = [in_channels, out_channels, kernel_size, kernel_size, kernel_size]
 
-        self.head_w = tnn.Sequential(tnn.Linear(16*(2**meta_depth), np.prod(self.shape)), tnn.Tanh())
+        self.head_w = tnn.Sequential(tnn.Linear(16*(2**meta_depth), np.prod(self.wshape)), tnn.Tanh())
         if bias:
             self.head_b = tnn.Sequential(tnn.Linear(16*(2**meta_depth), out_channels), tnn.Tanh())
 
@@ -547,8 +547,8 @@ class HyperConvTranspose(tnn.Module):
         if padding == 'auto':
             padding = ((self.kernel_size-1)*self.dilation)//2
 
-        shape = self.shape.copy()
-        shape[0] *= np.prod(meta.shape[:2])
+        wshape = self.wshape.copy()
+        wshape[0] *= np.prod(meta.shape[:2])
         
         for block in self.blocks:
             block = block.to(device)
@@ -559,10 +559,10 @@ class HyperConvTranspose(tnn.Module):
 
         if self.grouppool==True:
             weight = torch.mean(weight, dim=1)
-            shape[0] //= meta.shape[1]
-            shape[1] *= meta.shape[1]
+            wshape[0] //= meta.shape[1]
+            wshape[1] *= meta.shape[1]
             
-        weight = weight.view(shape)
+        weight = weight.view(wshape)
 
         if self.bias:
             bias = self.head_b(meta)
