@@ -763,6 +763,7 @@ class HyperStack(tnn.ModuleList):
 
         out_channels = make_list(out_channels)
         in_channels = [in_channels] + out_channels[:-1]
+        print(in_channels)
         nb_layers = len(out_channels)
         
         activation = expand_list(make_list(activation), nb_layers, default='relu')
@@ -796,7 +797,7 @@ class HyperStack(tnn.ModuleList):
         i, o, a, bn, b = final_shape
         if transposed:
             modules.append(HyperConvTranspose(
-                dim, o, o, meta_dim,
+                dim, i, o, meta_dim,
                 kernel_size=kernel_size,
                 activation=a,
                 batch_norm=bn,
@@ -806,7 +807,7 @@ class HyperStack(tnn.ModuleList):
                 meta_depth=meta_depth))
         else:
             modules.append(HyperConv(
-                dim, o, o, meta_dim,
+                dim, i, o, meta_dim,
                 kernel_size=kernel_size,
                 activation=a,
                 batch_norm=bn,
