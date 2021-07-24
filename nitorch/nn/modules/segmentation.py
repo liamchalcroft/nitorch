@@ -1021,7 +1021,7 @@ class GroupSegNet(Module):
         self.augmentation = augmentation
         final_activation = None
         if not skip_final_activation:
-            if implicit and output_classes == 1:
+            if not implicit and output_classes == 1:
                 final_activation = tnn.Sigmoid()
             else:
                 final_activation = tnn.Softmax(dim=1)
