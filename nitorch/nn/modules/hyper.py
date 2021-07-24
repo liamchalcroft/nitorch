@@ -239,7 +239,6 @@ class HyperConv(tnn.Module):
             self.batch_norm = HyperGroupNorm(in_channels, meta_dim, meta_depth, meta_act)
 
         if self.activation == True:
-            print('activation initialised')
             self.activation = tnn.LeakyReLU()
 
         if not meta_act:
@@ -342,10 +341,6 @@ class HyperConv(tnn.Module):
         # perform post-padding
         if output_padding:
             x = utils.pad(x, output_padding, side='right')
-
-        print(x.shape)
-
-        print(self.activation)
 
         if self.activation:
             x = self.activation(x)
@@ -834,7 +829,6 @@ class HyperStack(tnn.ModuleList):
         if return_last:
             last = x
         for layer in self.modules:
-            print(x.shape, layer.in_channels, layer.out_channels)
             if return_last and not is_last(layer):
                 last = x
             if self.residual:
