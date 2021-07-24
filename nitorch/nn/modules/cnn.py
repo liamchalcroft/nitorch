@@ -2946,13 +2946,13 @@ class GroupNet(tnn.Sequential):
                 raise RuntimeError('No meta-data provided.')
 
         buffers = []
-        # if self.fusion_depth:
-        #     if self.hyper:
-        #         buffers.append(self.group[0](x, meta))
-        #     else:
-        #         buffers.append(self.group[0](x))
-        # else:
-        #     buffers.append(x)
+        if self.fusion_depth:
+            if self.hyper:
+                buffers.append(self.group[0](x, meta))
+            else:
+                buffers.append(self.group[0](x))
+        else:
+            buffers.append(x)
 
         if self.hyper:
             x = self.first(x, meta)
