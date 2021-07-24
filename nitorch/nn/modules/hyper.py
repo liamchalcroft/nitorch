@@ -739,7 +739,7 @@ class HyperStack(tnn.Module):
 
         """
 
-        # super().__init__()
+        super().__init__()
 
         self.meta_dim = meta_dim
         self.dim = dim
@@ -800,7 +800,7 @@ class HyperStack(tnn.Module):
                 meta_act=meta_act,
                 meta_depth=meta_depth))
 
-        super().__init__(modules)
+        self.modules = modules
                 
     def forward(self, x, meta, return_last=False):
         def is_last(layer):
