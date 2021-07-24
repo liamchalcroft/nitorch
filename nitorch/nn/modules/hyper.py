@@ -580,10 +580,6 @@ class HyperConvTranspose(tnn.Module):
                 x = F.conv_transpose2d(x, weight, bias, 
                 stride=self.stride, padding=padding, groups=meta.shape[0])
             else:
-                print(x.shape)
-                print(weight.shape)
-                print(bias.shape)
-                print(meta.shape)
                 x = F.conv_transpose2d(x, weight, bias, 
                 stride=self.stride, padding=padding, groups=np.prod(meta.shape[:2]))
 
