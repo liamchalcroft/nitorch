@@ -600,11 +600,9 @@ class HyperConvTranspose(tnn.Module):
 
         x = x.view(meta.shape[0], -1, *x.shape[2:])
 
-        print('pre-pad', x.shape)
         # perform post-padding
         if output_padding:
             x = utils.pad(x, output_padding, side='right')
-        print('post-pad', x.shape)
 
         if self.activation:
             x = self.activation(x)
@@ -833,7 +831,6 @@ class HyperStack(tnn.ModuleList):
         if return_last:
             last = x
         for layer in self.modules:
-            print(x.shape)
             if return_last and not is_last(layer):
                 last = x
             if self.residual:
