@@ -636,7 +636,7 @@ class HyperConvTranspose(tnn.Module):
         
 
 @nitorchmodule
-class HyperStack(tnn.Module):
+class HyperStack(tnn.ModuleList):
 
     def __init__(
             self,
