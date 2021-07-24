@@ -2976,7 +2976,8 @@ class GroupNet(tnn.Sequential):
                         buffer = pool(buffer, meta)
                     else:
                         buffer = pool(buffer)
-                print(buffer.shape)
+            print(x.shape)
+            print(buffer.shape)
             buffers.append(buffer)
 
         if adv:
