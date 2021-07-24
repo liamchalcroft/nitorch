@@ -835,6 +835,7 @@ class HyperStack(tnn.ModuleList):
         if return_last:
             last = x
         for layer in self.modules:
+            print(x.shape, layer.in_channels, layer.out_channels)
             if return_last and not is_last(layer):
                 last = x
             if self.residual:
