@@ -763,7 +763,6 @@ class HyperStack(tnn.ModuleList):
 
         out_channels = make_list(out_channels)
         in_channels = [in_channels] + out_channels[:-1]
-        print(in_channels)
         nb_layers = len(out_channels)
         
         activation = expand_list(make_list(activation), nb_layers, default='relu')
@@ -784,7 +783,6 @@ class HyperStack(tnn.ModuleList):
         # stacked conv (without strides)
         modules = []
         for d, (i, o, a, bn, b) in enumerate(all_shapes):
-            print(i, o)
             modules.append(HyperConv(
                 dim, i, o, meta_dim,
                 kernel_size=kernel_size,
@@ -797,7 +795,6 @@ class HyperStack(tnn.ModuleList):
         # last conv (strided if not pool)
         i, o, a, bn, b = final_shape
         if transposed:
-            print(i,o)
             modules.append(HyperConvTranspose(
                 dim, i, o, meta_dim,
                 kernel_size=kernel_size,
@@ -808,7 +805,6 @@ class HyperStack(tnn.ModuleList):
                 meta_act=meta_act,
                 meta_depth=meta_depth))
         else:
-            print(i,o)
             modules.append(HyperConv(
                 dim, i, o, meta_dim,
                 kernel_size=kernel_size,
