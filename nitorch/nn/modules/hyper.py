@@ -345,6 +345,8 @@ class HyperConv(tnn.Module):
 
         print(x.shape)
 
+        print(self.activation)
+
         if self.activation:
             x = self.activation(x)
 
