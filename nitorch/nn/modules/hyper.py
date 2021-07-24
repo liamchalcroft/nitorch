@@ -238,7 +238,7 @@ class HyperConv(tnn.Module):
         if batch_norm == True:
             self.batch_norm = HyperGroupNorm(in_channels, meta_dim, meta_depth, meta_act)
 
-        if activation == True:
+        if self.activation == True:
             print('activation initialised')
             self.activation = tnn.LeakyReLU()
 
