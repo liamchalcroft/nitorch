@@ -3008,6 +3008,7 @@ class GroupNet(tnn.Sequential):
             buffer = buffers.pop()
             print(x.shape, buffer.shape)
             x_cat = torch.cat((x, buffer), dim=1)
+            print(x_cat.shape)
             x = self.stack(x, meta=meta)
             f = x if return_feat else None
             x = self.final(x, meta=meta)
