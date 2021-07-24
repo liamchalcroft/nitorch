@@ -542,7 +542,7 @@ class HyperConvTranspose(tnn.Module):
             padding = ((self.kernel_size-1)*self.dilation)//2
 
         shape = self.shape.copy()
-        shape[1] *= np.prod(meta.shape[:2])
+        shape[0] *= np.prod(meta.shape[:2])
         
         for block in self.blocks:
             block = block.to(device)
@@ -553,7 +553,8 @@ class HyperConvTranspose(tnn.Module):
 
         if self.grouppool==True:
             weight = torch.mean(weight, dim=1)
-            shape[1] //= meta.shape[1]
+            shape[0] //= meta.shape[1]
+            shape[1] *= meta.shape[1]
             
         weight = weight.view(shape)
 
