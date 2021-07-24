@@ -739,7 +739,7 @@ class HyperStack(tnn.Module):
 
         """
 
-        super().__init__()
+        # super().__init__()
 
         self.meta_dim = meta_dim
         self.dim = dim
