@@ -2992,6 +2992,7 @@ class GroupNet(tnn.Sequential):
             x = self.bottleneck(x, meta=meta, output_padding=pad)
         else:
             x = self.bottleneck(x, output_padding=pad)
+        print(x.shape)
 
         # decoder
         for layer in self.decoder:
