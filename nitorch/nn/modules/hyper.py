@@ -116,7 +116,6 @@ class HyperGroupNorm(tnn.Module):
         bias = bias.view(-1)
 
         x = x.view(1, -1, *x.shape[2:])
-        print(x.shape)
 
         x = F.group_norm(x, np.prod(meta.shape[:2]), weight=weight, bias=bias)
 
@@ -831,6 +830,7 @@ class HyperStack(tnn.ModuleList):
         if return_last:
             last = x
         for layer in self.modules:
+            print(x.shape)
             if return_last and not is_last(layer):
                 last = x
             if self.residual:
