@@ -401,7 +401,8 @@ class HyperConvTranspose(tnn.Module):
         padding='auto',
         padding_mode='zeros',
         output_padding=0,
-        dilation=1):
+        dilation=1,
+        grouppool=False):
 
         """
 
@@ -488,6 +489,7 @@ class HyperConvTranspose(tnn.Module):
         self.activation = activation
         self.kernel_size = kernel_size
         self.dilation = dilation
+        self.grouppool = grouppool
 
         if batch_norm == True:
             self.batch_norm = HyperGroupNorm(in_channels, meta_dim, meta_depth, meta_act)
