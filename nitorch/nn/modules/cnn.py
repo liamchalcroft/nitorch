@@ -3004,6 +3004,7 @@ class GroupNet(tnn.Sequential):
                 x = layer(x, buffer, output_padding=pad)
 
         if self.hyper and not isinstance(self.fusion_depth, int):
+            print(x.shape, buffer.shape, pad)
             x_cat = torch.cat((x, buffer), dim=1)
             x = self.stack(x, meta=meta)
             f = x if return_feat else None
