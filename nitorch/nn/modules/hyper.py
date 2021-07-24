@@ -77,6 +77,7 @@ class HyperGroupNorm(tnn.Module):
 
         super().__init__()
 
+        self.in_channels = in_channels
         self.meta_dim = meta_dim
 
         if not meta_act:
@@ -279,7 +280,7 @@ class HyperConv(tnn.Module):
         if self.bias:
             self.head_b = self.head_b.to(device)
 
-        print(x.shape, self.batch_norm.shape)
+        print(x.shape, self.batch_norm.in_channels)
 
         if self.batch_norm:
             x = self.batch_norm(x, meta)
