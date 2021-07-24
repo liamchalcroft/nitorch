@@ -2998,7 +2998,7 @@ class GroupNet(tnn.Sequential):
         # decoder
         for layer in self.decoder:
             buffer = buffers.pop()
-            pad = self.get_padding(buffer.shape, x.shape, layer)
+            pad = self.get_padding(buffers[-1].shape, x.shape, layer)
             if self.hyper and not isinstance(self.fusion_depth, int):
                 print(x.shape, buffer.shape, pad)
                 x_cat = torch.cat((x, buffer), dim=1)
