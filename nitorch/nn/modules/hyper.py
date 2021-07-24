@@ -839,8 +839,7 @@ class HyperStack(tnn.ModuleList):
     def shape(self, x):
         if torch.is_tensor(x):
             x = tuple(x.shape)
-        print(self.modules)
-        for layer in self:
+        for layer in self.modules:
             print(layer)
             if isinstance(layer, (HyperConv, HyperConvTranspose)):
                 x = layer.shape(x)
