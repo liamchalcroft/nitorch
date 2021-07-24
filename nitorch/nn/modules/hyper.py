@@ -766,7 +766,7 @@ class HyperStack(tnn.ModuleList):
         in_channels = [in_channels] + out_channels[:-1]
         nb_layers = len(out_channels)
         
-        activation = expand_list(make_list(activation), nb_layers, default='relu')
+        activation = expand_list(make_list(activation), nb_layers, default=True)
         batch_norm = expand_list(make_list(batch_norm), nb_layers, default=True)
         bias = expand_list(make_list(bias), nb_layers, default=True)
         
