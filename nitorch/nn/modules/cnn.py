@@ -2799,7 +2799,6 @@ class GroupNet(tnn.Sequential):
             modules['group'] = tnn.ModuleList(group_pool)
 
         # --- bottleneck ------------------------------------------
-        print('making bottleneck')
         cin = encoder[-1]
         cout = decoder[0]
         cout = [encoder[-1]] * (conv_per_layer - 1) + [cout]
@@ -2829,7 +2828,6 @@ class GroupNet(tnn.Sequential):
             )
 
         # --- decoder ------------------------------------------
-        print('making decoder')
         modules_decoder = []
         *encoder, bottleneck = encoder
         for n in range(len(decoder) - 1):
@@ -2978,8 +2976,6 @@ class GroupNet(tnn.Sequential):
                         buffer = pool(buffer, meta)
                     else:
                         buffer = pool(buffer)
-            print(x.shape)
-            print(buffer.shape)
             buffers.append(buffer)
 
         if adv:
@@ -2991,11 +2987,10 @@ class GroupNet(tnn.Sequential):
         print(x.shape, buffer.shape, pad)
 
         if self.hyper and not isinstance(self.fusion_depth, int):
-            # x = self.bottleneck(x, meta=meta, output_padding=pad)
-            x = self.bottleneck(x, meta=meta)
+            x = self.bottleneck(x, meta=meta, output_padding=pad)
+            # x = self.bottleneck(x, meta=meta)
         else:
             x = self.bottleneck(x, output_padding=pad)
-        print(x.shape)
 
         # decoder
         for layer in self.decoder:

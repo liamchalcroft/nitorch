@@ -791,7 +791,6 @@ class HyperStack(tnn.ModuleList):
         # last conv (strided if not pool)
         i, o, a, bn, b = final_shape
         if transposed:
-            print('using transpose')
             modules.append(HyperConvTranspose(
                 dim, i, o, meta_dim,
                 kernel_size=kernel_size,
@@ -843,4 +842,5 @@ class HyperStack(tnn.ModuleList):
         for layer in reversed(self):
             if isinstance(layer, (HyperConv, HyperConvTranspose)):
                 x = layer.shape(x)
+        print(x)
         return x
