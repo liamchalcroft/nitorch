@@ -1022,7 +1022,7 @@ class GroupSegNet(Module):
         final_activation = None
         if not skip_final_activation:
             if implicit and output_classes == 1:
-                final_activation = tnn.Sigmoid
+                final_activation = tnn.Sigmoid()
             else:
                 final_activation = tnn.Softmax(dim=1)
         if implicit:
