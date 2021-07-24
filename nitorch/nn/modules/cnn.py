@@ -2946,13 +2946,13 @@ class GroupNet(tnn.Sequential):
                 raise RuntimeError('No meta-data provided.')
 
         buffers = []
-        if self.fusion_depth:
-            if self.hyper:
-                buffers.append(self.group[0](x, meta))
-            else:
-                buffers.append(self.group[0](x))
-        else:
-            buffers.append(x)
+        # if self.fusion_depth:
+        #     if self.hyper:
+        #         buffers.append(self.group[0](x, meta))
+        #     else:
+        #         buffers.append(self.group[0](x))
+        # else:
+        #     buffers.append(x)
 
         if self.hyper:
             x = self.first(x, meta)
@@ -2985,7 +2985,7 @@ class GroupNet(tnn.Sequential):
             adv_input = torch.cat(adv_input, dim=2)
             adv_pred = adv(adv_input)
 
-        pad = self.get_padding(buffers[-2].shape, x.shape, self.bottleneck)
+        pad = self.get_padding(buffers[-1].shape, x.shape, self.bottleneck)
 
         if self.hyper and not isinstance(self.fusion_depth, int):
             x = self.bottleneck(x, meta=meta, output_padding=pad)
@@ -2996,7 +2996,7 @@ class GroupNet(tnn.Sequential):
         # decoder
         for layer in self.decoder:
             buffer = buffers.pop()
-            pad = self.get_padding(buffers[-2].shape, x.shape, layer)
+            pad = self.get_padding(buffers[-1].shape, x.shape, layer)
             if self.hyper and not isinstance(self.fusion_depth, int):
                 print(x.shape, buffer.shape, pad)
                 x_cat = torch.cat((x, buffer), dim=1)
