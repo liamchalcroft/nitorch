@@ -797,6 +797,7 @@ class HyperStack(tnn.ModuleList):
         # last conv (strided if not pool)
         i, o, a, bn, b = final_shape
         if transposed:
+            print(i,o)
             modules.append(HyperConvTranspose(
                 dim, i, o, meta_dim,
                 kernel_size=kernel_size,
@@ -807,6 +808,7 @@ class HyperStack(tnn.ModuleList):
                 meta_act=meta_act,
                 meta_depth=meta_depth))
         else:
+            print(i,o)
             modules.append(HyperConv(
                 dim, i, o, meta_dim,
                 kernel_size=kernel_size,
