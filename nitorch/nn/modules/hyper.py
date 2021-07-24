@@ -344,6 +344,8 @@ class HyperConv(tnn.Module):
         if output_padding:
             x = utils.pad(x, output_padding, side='right')
 
+        print(x.shape)
+
         if self.activation:
             x = self.activation(x)
 
