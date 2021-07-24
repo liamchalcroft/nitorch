@@ -221,6 +221,8 @@ class HyperConv(tnn.Module):
 
         super().__init__()
 
+        self.in_channels = in_channels
+        self.out_channels = out_channels
         self.meta_dim = meta_dim
         self.dim = dim
         self.stride = stride
@@ -645,7 +647,6 @@ class HyperConvTranspose(tnn.Module):
             transposed=True)
         shape = list(shape)
         shape[1] = self.out_channels
-        print('pred output shape', shape)
         return tuple(shape)
         
 
@@ -842,8 +843,6 @@ class HyperStack(tnn.ModuleList):
         if torch.is_tensor(x):
             x = tuple(x.shape)
         for layer in self.modules:
-            print(layer)
             if isinstance(layer, (HyperConv, HyperConvTranspose)):
                 x = layer.shape(x)
-        print(x)
         return x
