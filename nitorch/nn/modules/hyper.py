@@ -781,7 +781,7 @@ class HyperStack(tnn.ModuleList):
         
         # stacked conv (without strides)
         modules = []
-        for d, (i, o, a, bn, b) in enumerate(all_shapes):
+        for (i, o, a, bn, b) in enumerate(all_shapes):
             modules.append(HyperConv(
                 dim, i, o, meta_dim,
                 kernel_size=kernel_size,
