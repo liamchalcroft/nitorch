@@ -2874,6 +2874,7 @@ class GroupNet(tnn.Sequential):
         for s in stack:
             cout += [s] * conv_per_layer
         if cout:
+            print(cin)
             if hyper and not isinstance(fusion_depth, int):
                 stk = HyperStack(
                     dim,
@@ -2902,7 +2903,6 @@ class GroupNet(tnn.Sequential):
             last_stack = cin
 
         if hyper and not isinstance(fusion_depth, int):
-            print(last_stack)
             final = HyperConv(
                         dim,
                         in_channels=last_stack,
