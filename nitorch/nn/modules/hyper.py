@@ -800,7 +800,7 @@ class HyperStack(tnn.Module):
                 meta_act=meta_act,
                 meta_depth=meta_depth))
 
-        self.modules = modules
+        super().__init__(modules)
                 
     def forward(self, x, meta, return_last=False):
         def is_last(layer):
