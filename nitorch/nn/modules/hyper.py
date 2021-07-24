@@ -265,7 +265,10 @@ class HyperConv(tnn.Module):
         self.padding_mode = padding_mode
         self.output_padding = output_padding
 
-    def forward(self, x, meta):
+    def forward(self, x, meta, output_padding=None):
+
+        if not output_padding:
+            output_padding = self.output_padding
 
         device = x.device
 
@@ -524,7 +527,10 @@ class HyperConvTranspose(tnn.Module):
         self.padding_mode = padding_mode
         self.output_padding = output_padding
 
-    def forward(self, x, meta):
+    def forward(self, x, meta, output_padding=None):
+
+        if not output_padding:
+            output_padding = self.output_padding
 
         device = x.device
 
@@ -809,7 +815,7 @@ class HyperStack(tnn.ModuleList):
 
         self.modules = modules
                 
-    def forward(self, x, meta, return_last=False):
+    def forward(self, x, meta, return_last=False, output_padding=None):
         def is_last(layer):
             if isinstance(layer, HyperConv):
                 if not all(s == 1 for s in make_list(layer.stride)):
@@ -825,9 +831,9 @@ class HyperStack(tnn.ModuleList):
             if return_last and not is_last(layer):
                 last = x
             if self.residual:
-                x = x + layer(x, meta)
+                x = x + layer(x, meta, output_padding=output_padding)
             else:
-                x = layer(x, meta)
+                x = layer(x, meta, output_padding=output_padding)
 
         return (x, last) if return_last else x
 
