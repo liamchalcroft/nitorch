@@ -2874,7 +2874,6 @@ class GroupNet(tnn.Sequential):
         for s in stack:
             cout += [s] * conv_per_layer
         if cout:
-            print(cin)
             if hyper and not isinstance(fusion_depth, int):
                 stk = HyperStack(
                     dim,
@@ -2985,7 +2984,6 @@ class GroupNet(tnn.Sequential):
             adv_pred = adv(adv_input)
 
         pad = self.get_padding(buffers[-1].shape, x.shape, self.bottleneck)
-        print(x.shape, buffer.shape, pad)
 
         if self.hyper and not isinstance(self.fusion_depth, int):
             x = self.bottleneck(x, meta=meta, output_padding=pad)
@@ -2998,7 +2996,6 @@ class GroupNet(tnn.Sequential):
             buffer = buffers.pop()
             pad = self.get_padding(buffers[-1].shape, x.shape, layer)
             if self.hyper and not isinstance(self.fusion_depth, int):
-                print(x.shape, buffer.shape, pad)
                 x_cat = torch.cat((x, buffer), dim=1)
                 x = layer(x_cat, meta=meta, output_padding=pad)
             else:
@@ -3006,9 +3003,7 @@ class GroupNet(tnn.Sequential):
 
         if self.hyper and not isinstance(self.fusion_depth, int):
             buffer = buffers.pop()
-            print(x.shape, buffer.shape)
             x_cat = torch.cat((x, buffer), dim=1)
-            print(x_cat.shape)
             x = self.stack(x, meta=meta)
             f = x if return_feat else None
             x = self.final(x, meta=meta)
