@@ -2902,6 +2902,7 @@ class GroupNet(tnn.Sequential):
             last_stack = cin
 
         if hyper and not isinstance(fusion_depth, int):
+            print(last_stack)
             final = HyperConv(
                         dim,
                         in_channels=last_stack,
