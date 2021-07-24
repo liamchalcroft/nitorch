@@ -2988,7 +2988,6 @@ class GroupNet(tnn.Sequential):
         pad = self.get_padding(buffers[-1].shape, x.shape, self.bottleneck)
 
         if self.hyper and not isinstance(self.fusion_depth, int):
-            # x = self.bottleneck(x, meta=meta, output_padding=pad)
             x = self.bottleneck(x, meta=meta, output_padding=pad)
         else:
             x = self.bottleneck(x, output_padding=pad)

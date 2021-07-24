@@ -593,9 +593,11 @@ class HyperConvTranspose(tnn.Module):
 
         x = x.view(meta.shape[0], -1, *x.shape[2:])
 
+        print('pre-pad', x.shape)
         # perform post-padding
         if self.output_padding:
             x = utils.pad(x, self.output_padding, side='right')
+        print('post-pad', x.shape)
 
         if self.activation:
             x = self.activation(x)
