@@ -3346,6 +3346,7 @@ class PhysicsSegNet(tnn.Sequential):
             phys_input = phys_input[..., None, None, None, None]
         net_shape = list(network_input.shape)
         net_shape[1] = 1
+        print(phys_input.shape, net_shape)
         phys_input = phys_input.repeat(net_shape)
         return phys_input
 
