@@ -3039,7 +3039,8 @@ class PhysicsSegNet(tnn.Sequential):
             activation=tnn.LeakyReLU(),
             batch_norm=True,
             residual=False,
-            conv_per_layer=1):
+            conv_per_layer=1,
+            phys_feat=40):
         """
 
         Parameters
@@ -3184,10 +3185,10 @@ class PhysicsSegNet(tnn.Sequential):
 
         # --- physics subnet -------------------------------------------
         modules['subnet'] = tnn.Sequential(
-            tnn.Linear(meta_dim, 10),
-            tnn.ReLU(),
-            tnn.Linear(10, np.prod(patch_size)),
-            tnn.ReLU()
+            tnn.Linear(meta_dim, phys_feat),
+            tnn.SELU(),
+            tnn.Linear(phys_feat, phys_feat),
+            tnn.SELU()
         )
 
         # --- head -----------------------------------------------
@@ -3260,7 +3261,7 @@ class PhysicsSegNet(tnn.Sequential):
             x = layer(x, buffer, output_padding=pad)
 
         phys = self.subnet(meta)
-        phys = phys.view(-1, 1, *self.patch_size)
+        phys = resize_phys(phys, x)
         x = self.stack(x, buffers.pop(), phys)
         f = x if return_feat else None
         x = self.final(x)
@@ -3271,6 +3272,14 @@ class PhysicsSegNet(tnn.Sequential):
         shape = layer.shape(inshape)[2:]
         padding = [o - i for o, i in zip(outshape, shape)]
         return padding
+    
+    @staticmethod
+    def resize_phys(phys_input, network_input):
+        phys_input = phys_input[..., None, None, None]
+        net_shape = network_input.shape
+        net_shape[1] = 1
+        phys_input = phys_input.repeat(net_shape)
+        return phys_input
 
 
 @nitorchmodule
