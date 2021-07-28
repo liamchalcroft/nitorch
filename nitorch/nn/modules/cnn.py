@@ -2789,17 +2789,35 @@ class GroupNet(tnn.Sequential):
                         residual=residual
                     ))
             else:
-                bn = batch_norm
-                modules_encoder.append(EncodingLayer(
-                    dim,
-                    in_channels=cin,
-                    out_channels=cout,
-                    kernel_size=kernel_size,
-                    stride=stride,
-                    activation=activation,
-                    batch_norm=bn,
-                    residual=residual
-                ))
+                if hyper == True:
+                    bn = batch_norm
+                    modules_encoder.append(HyperStack(
+                        dim,
+                        in_channels=cin,
+                        out_channels=cout,
+                        meta_dim=meta_dim,
+                        kernel_size=kernel_size,
+                        stride=stride,
+                        activation=activation,
+                        batch_norm=bn,
+                        residual=residual,
+                        meta_act=meta_act,
+                        meta_depth=meta_depth,
+                        weight_share=weight_share,
+                        feats=hyper_feats
+                    ))
+                else:
+                    bn = batch_norm
+                    modules_encoder.append(EncodingLayer(
+                        dim,
+                        in_channels=cin,
+                        out_channels=cout,
+                        kernel_size=kernel_size,
+                        stride=stride,
+                        activation=activation,
+                        batch_norm=bn,
+                        residual=residual
+                    ))
         modules['encoder'] = tnn.ModuleList(modules_encoder)
 
         #--- group pooling ------------------------------------------
