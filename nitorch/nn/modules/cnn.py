@@ -2635,6 +2635,7 @@ class GroupNet(tnn.Sequential):
         self.dim = dim
         self.fusion_depth = fusion_depth
         self.hyper = hyper
+        self.weight_share = weight_share
 
         # defaults
         conv_per_layer = max(1, conv_per_layer)
