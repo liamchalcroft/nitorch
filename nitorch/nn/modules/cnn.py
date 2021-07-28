@@ -13,7 +13,7 @@ from .base import nitorchmodule, Module
 from .conv import Conv
 from .pool import Pool
 from .reduction import reductions, Reduction
-from .hyper import HyperStack, HyperConv
+from .hyper import HyperStack, HyperConv, HyperConvTranspose, HyperBase
 
 
 def interleaved_cat(tensors, dim=0, groups=1):
@@ -2567,7 +2567,10 @@ class GroupNet(tnn.Sequential):
             batch_norm=True,
             residual=False,
             conv_per_layer=1,
-            meta_act=None):
+            meta_depth=2,
+            meta_act=None,
+            weight_share=False,
+            hyper_feats=16):
         """
 
         Parameters
@@ -2652,6 +2655,15 @@ class GroupNet(tnn.Sequential):
 
         modules = OrderedDict()
 
+        # --- base hypernetwork (only for weight sharing = True) ---------
+
+        if weight_share is True:
+            modules['hyperbase'] = HyperBase(
+                meta_dim=meta_dim,
+                meta_depth=meta_depth,
+                meta_act=meta_act
+            )
+
         # --- initial feature extraction --------------------------------
         if fusion_depth and not hyper:
             bn = tnn.GroupNorm(in_channels, in_channels)
@@ -2669,7 +2681,10 @@ class GroupNet(tnn.Sequential):
                 stride=stride,
                 batch_norm=bn,
                 padding='auto',
-                meta_act=meta_act)
+                meta_act=meta_act,
+                meta_depth=meta_depth,
+                weight_share=weight_share,
+                feats=hyper_feats)
         else:
             if fusion_depth:
                 modules['first'] = Conv(
@@ -2713,7 +2728,10 @@ class GroupNet(tnn.Sequential):
                             activation=activation,
                             batch_norm=bn,
                             residual=residual,
-                            meta_act=meta_act
+                            meta_act=meta_act,
+                            meta_depth=meta_depth,
+                            weight_share=weight_share,
+                            feats=hyper_feats
                         ))
                     else:
                         bn = tnn.GroupNorm(in_channels, cin)
@@ -2742,7 +2760,10 @@ class GroupNet(tnn.Sequential):
                             batch_norm=bn,
                             residual=residual,
                             grouppool=True,
-                            meta_act=meta_act
+                            meta_act=meta_act,
+                            meta_depth=meta_depth,
+                            weight_share=weight_share,
+                            feats=hyper_feats
                         ))
                     else:
                         modules_encoder.append(EncodingLayer(
@@ -2788,7 +2809,7 @@ class GroupNet(tnn.Sequential):
                 if hyper:
                     group_pool.append(HyperConv(dim=dim, in_channels=in_channels,
                         out_channels=1, meta_dim=meta_dim, kernel_size=1, grouppool=True,
-                        meta_act=meta_act))
+                        meta_act=meta_act, meta_depth=meta_depth, weight_share=weight_share, feats=hyper_feats))
                 else:
                     group_pool.append(Conv(dim=dim, in_channels=in_channels,
                         out_channels=1, kernel_size=1))
@@ -2798,7 +2819,7 @@ class GroupNet(tnn.Sequential):
                 if hyper:
                     group_pool.append(HyperConv(dim=dim, in_channels=cin,
                     out_channels=cout, meta_dim=meta_dim, kernel_size=1, grouppool=True,
-                    meta_act=meta_act))
+                    meta_act=meta_act, meta_depth=meta_depth, weight_share=weight_share, feats=hyper_feats))
                 else:
                     group_pool.append(Conv(dim=dim, in_channels=cin,
                     out_channels=cout, kernel_size=1))
@@ -2820,7 +2841,10 @@ class GroupNet(tnn.Sequential):
                 batch_norm=batch_norm,
                 residual=residual,
                 transposed=True,
-                meta_act=meta_act
+                meta_act=meta_act,
+                meta_depth=meta_depth,
+                weight_share=weight_share,
+                feats=hyper_feats
             )
         else:
             modules['bottleneck'] = DecodingLayer(
@@ -2859,7 +2883,10 @@ class GroupNet(tnn.Sequential):
                     batch_norm=batch_norm,
                     residual=residual,
                     transposed=True,
-                    meta_act=meta_act))
+                    meta_act=meta_act,
+                    meta_depth=meta_depth,
+                    weight_share=weight_share,
+                    feats=hyper_feats))
             else:
                 modules_decoder.append(DecodingLayer(
                     dim,
@@ -2892,7 +2919,10 @@ class GroupNet(tnn.Sequential):
                     activation=activation,
                     batch_norm=batch_norm,
                     residual=residual,
-                    meta_act=meta_act
+                    meta_act=meta_act,
+                    meta_depth=meta_depth,
+                    weight_share=weight_share,
+                    feats=hyper_feats
                 )
             else:
                 stk = StackedConv(
@@ -2920,7 +2950,10 @@ class GroupNet(tnn.Sequential):
                         activation=final_activation,
                         batch_norm=batch_norm,
                         padding='auto',
-                        meta_act=meta_act
+                        meta_act=meta_act,
+                        meta_depth=meta_depth,
+                        weight_share=weight_share,
+                        feats=hyper_feats
                     )
         else:
             final = Conv(dim, last_stack, out_channels,
@@ -2954,6 +2987,9 @@ class GroupNet(tnn.Sequential):
         if self.hyper == True:
             if meta==None:
                 raise RuntimeError('No meta-data provided.')
+
+        if self.weight_share is True:
+            meta = self.hyperbase(meta)
 
         buffers = []
         if self.fusion_depth:

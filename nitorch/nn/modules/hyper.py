@@ -44,13 +44,57 @@ def expand_list(x, n, crop=False, default=None):
 
 
 @nitorchmodule
+class HyperBase(tnn.Module):
+
+    def __init__(self,
+        meta_dim,
+        meta_depth=2,
+        meta_act=None):
+
+        """
+        
+        Base FC layers for weight-sharing in hypernets. Output of this can then be
+        passed to other hypernet layers and passed through head layer(s).
+        
+        """
+
+        super().__init__()
+
+        self.meta_dim = meta_dim
+
+        if not meta_act:
+            self.meta_act = tnn.LeakyReLU()
+        else:
+            self.meta_act = meta_act
+
+        # define network layers
+        shared_modules = []
+        shared_modules.append(tnn.Linear(meta_dim, 16))
+        for i in range(meta_depth):
+            shared_modules.append(tnn.Linear(16*(2**i), 16*(2**(i+1)))) 
+
+        self.blocks = tnn.ModuleList(shared_modules)
+
+        def forward(self, meta):
+
+            for block in self.blocks:
+                block = block
+                meta = block(meta)
+                meta = self.meta_act(meta)
+
+            return meta
+
+
+@nitorchmodule
 class HyperGroupNorm(tnn.Module):
 
     def __init__(self,
         in_channels,
         meta_dim,
         meta_depth=2,
-        meta_act=None):
+        meta_act=None,
+        weight_share=False,
+        feats=16):
 
         """
 
@@ -79,36 +123,41 @@ class HyperGroupNorm(tnn.Module):
 
         self.in_channels = in_channels
         self.meta_dim = meta_dim
+        self.weight_share = weight_share
+        self.feats = feats
 
-        if not meta_act:
-            self.meta_act = tnn.LeakyReLU()
-        else:
-            self.meta_act = meta_act
+        if weight_share is False:
+            if not meta_act:
+                self.meta_act = tnn.LeakyReLU()
+            else:
+                self.meta_act = meta_act
 
-        # define network layers
-        shared_modules = []
-        shared_modules.append(tnn.Linear(meta_dim, 16))
-        for i in range(meta_depth):
-            shared_modules.append(tnn.Linear(16*(2**i), 16*(2**(i+1)))) 
+            # define network layers
+            shared_modules = []
+            shared_modules.append(tnn.Linear(meta_dim, feats))
+            for i in range(meta_depth):
+                shared_modules.append(tnn.Linear(feats*(2**i), feats*(2**(i+1)))) 
 
-        self.blocks = tnn.ModuleList(shared_modules)
+            self.blocks = tnn.ModuleList(shared_modules)
 
         # define output layers with shape of weights/bias
 
-        self.head_w = tnn.Sequential(tnn.Linear(16*(2**meta_depth), in_channels), tnn.Tanh())
-        self.head_b = tnn.Sequential(tnn.Linear(16*(2**meta_depth), in_channels), tnn.Tanh())
+        self.head_w = tnn.Sequential(tnn.Linear(feats*(2**meta_depth), in_channels), tnn.Tanh())
+        self.head_b = tnn.Sequential(tnn.Linear(feats*(2**meta_depth), in_channels), tnn.Tanh())
 
     def forward(self, x, meta):
         device = x.device
 
-        self.meta_act = self.meta_act.to(device)
         self.head_w = self.head_w.to(device)
         self.head_b = self.head_b.to(device)
 
-        for block in self.blocks:
-            block = block.to(device)
-            meta = block(meta)
-            meta = self.meta_act(meta)
+        if self.weight_share is False:
+            self.meta_act = self.meta_act.to(device)
+
+            for block in self.blocks:
+                block = block.to(device)
+                meta = block(meta)
+                meta = self.meta_act(meta)
 
         weight = self.head_w(meta)
         bias = self.head_b(meta)
@@ -144,7 +193,9 @@ class HyperConv(tnn.Module):
         padding_mode='zeros',
         output_padding=0,
         dilation=1,
-        grouppool=False):
+        grouppool=False,
+        weight_share=False,
+        feats=16):
 
         """
 
@@ -234,25 +285,28 @@ class HyperConv(tnn.Module):
         self.kernel_size = kernel_size
         self.dilation = dilation
         self.grouppool = grouppool
+        self.weight_share = weight_share
+        self.feats = feats
 
         if batch_norm == True:
-            self.batch_norm = HyperGroupNorm(in_channels, meta_dim, meta_depth, meta_act)
+            self.batch_norm = HyperGroupNorm(in_channels, meta_dim, meta_depth, meta_act, weight_share, feats)
 
         if self.activation == True:
             self.activation = tnn.LeakyReLU()
 
-        if not meta_act:
-            self.meta_act = tnn.LeakyReLU()
-        else:
-            self.meta_act = meta_act
+        if weight_share is False:
+            if not meta_act:
+                self.meta_act = tnn.LeakyReLU()
+            else:
+                self.meta_act = meta_act
 
-        # define network layers
-        shared_modules = []
-        shared_modules.append(tnn.Linear(meta_dim, 16))
-        for i in range(meta_depth):
-            shared_modules.append(tnn.Linear(16*(2**i), 16*(2**(i+1)))) 
+            # define network layers
+            shared_modules = []
+            shared_modules.append(tnn.Linear(meta_dim, feats))
+            for i in range(meta_depth):
+                shared_modules.append(tnn.Linear(feats*(2**i), feats*(2**(i+1)))) 
 
-        self.blocks = tnn.ModuleList(shared_modules)
+            self.blocks = tnn.ModuleList(shared_modules)
 
         # define output layers with shape of weights/bias
         if dim == 2:
@@ -260,9 +314,9 @@ class HyperConv(tnn.Module):
         elif dim == 3:
             self.wshape = [out_channels, in_channels, kernel_size, kernel_size, kernel_size]
 
-        self.head_w = tnn.Sequential(tnn.Linear(16*(2**meta_depth), np.prod(self.wshape)), tnn.Tanh())
+        self.head_w = tnn.Sequential(tnn.Linear(feats*(2**meta_depth), np.prod(self.wshape)), tnn.Tanh())
         if bias:
-            self.head_b = tnn.Sequential(tnn.Linear(16*(2**meta_depth), out_channels), tnn.Tanh())
+            self.head_b = tnn.Sequential(tnn.Linear(feats*(2**meta_depth), out_channels), tnn.Tanh())
 
         self.padding = padding
         self.padding_mode = padding_mode
@@ -275,7 +329,6 @@ class HyperConv(tnn.Module):
 
         device = x.device
 
-        self.meta_act = self.meta_act.to(device)
         self.head_w = self.head_w.to(device)
         if self.bias:
             self.head_b = self.head_b.to(device)
@@ -290,11 +343,14 @@ class HyperConv(tnn.Module):
 
         wshape = self.wshape.copy()
         wshape[0] *= np.prod(meta.shape[:2])
-        
-        for block in self.blocks:
-            block = block.to(device)
-            meta = block(meta)
-            meta = self.meta_act(meta)
+
+        if self.weight_share is False:
+            self.meta_act = self.meta_act.to(device)
+            
+            for block in self.blocks:
+                block = block.to(device)
+                meta = block(meta)
+                meta = self.meta_act(meta)
 
         weight = self.head_w(meta)
 
@@ -408,7 +464,9 @@ class HyperConvTranspose(tnn.Module):
         padding_mode='zeros',
         output_padding=0,
         dilation=1,
-        grouppool=False):
+        grouppool=False,
+        weight_share=False,
+        feats=16):
 
         """
 
@@ -498,6 +556,8 @@ class HyperConvTranspose(tnn.Module):
         self.kernel_size = kernel_size
         self.dilation = dilation
         self.grouppool = grouppool
+        self.weight_share = weight_share
+        self.feats = feats
 
         if batch_norm == True:
             self.batch_norm = HyperGroupNorm(in_channels, meta_dim, meta_depth, meta_act)
@@ -505,18 +565,19 @@ class HyperConvTranspose(tnn.Module):
         if activation == True:
             self.activation = tnn.LeakyReLU()
 
-        if not meta_act:
-            self.meta_act = tnn.LeakyReLU()
-        else:
-            self.meta_act = meta_act
+        if weight_share is False:
+            if not meta_act:
+                self.meta_act = tnn.LeakyReLU()
+            else:
+                self.meta_act = meta_act
 
-        # define network layers
-        shared_modules = []
-        shared_modules.append(tnn.Linear(meta_dim, 16))
-        for i in range(meta_depth):
-            shared_modules.append(tnn.Linear(16*(2**i), 16*(2**(i+1)))) 
+            # define network layers
+            shared_modules = []
+            shared_modules.append(tnn.Linear(meta_dim, feats))
+            for i in range(meta_depth):
+                shared_modules.append(tnn.Linear(feats*(2**i), feats*(2**(i+1)))) 
 
-        self.blocks = tnn.ModuleList(shared_modules)
+            self.blocks = tnn.ModuleList(shared_modules)
 
         # define output layers with shape of weights/bias
         if dim == 2:
@@ -524,9 +585,9 @@ class HyperConvTranspose(tnn.Module):
         elif dim == 3:
             self.wshape = [in_channels, out_channels, kernel_size, kernel_size, kernel_size]
 
-        self.head_w = tnn.Sequential(tnn.Linear(16*(2**meta_depth), np.prod(self.wshape)), tnn.Tanh())
+        self.head_w = tnn.Sequential(tnn.Linear(feats*(2**meta_depth), np.prod(self.wshape)), tnn.Tanh())
         if bias:
-            self.head_b = tnn.Sequential(tnn.Linear(16*(2**meta_depth), out_channels), tnn.Tanh())
+            self.head_b = tnn.Sequential(tnn.Linear(feats*(2**meta_depth), out_channels), tnn.Tanh())
 
         self.padding = padding
         self.padding_mode = padding_mode
@@ -539,7 +600,6 @@ class HyperConvTranspose(tnn.Module):
 
         device = x.device
 
-        self.meta_act = self.meta_act.to(device)
         self.head_w = self.head_w.to(device)
         if self.bias:
             self.head_b = self.head_b.to(device)
@@ -555,10 +615,13 @@ class HyperConvTranspose(tnn.Module):
         wshape = self.wshape.copy()
         wshape[0] *= np.prod(meta.shape[:2])
         
-        for block in self.blocks:
-            block = block.to(device)
-            meta = block(meta)
-            meta = self.meta_act(meta)
+        if self.weight_share is False:
+            self.meta_act = self.meta_act.to(device)
+
+            for block in self.blocks:
+                block = block.to(device)
+                meta = block(meta)
+                meta = self.meta_act(meta)
 
         weight = self.head_w(meta)
 
@@ -668,7 +731,9 @@ class HyperStack(tnn.ModuleList):
             batch_norm=True,
             bias=True,
             residual=False,
-            grouppool=False):
+            grouppool=False,
+            weight_share=False,
+            feats=16):
         
         """
 
@@ -787,7 +852,9 @@ class HyperStack(tnn.ModuleList):
                 activation=a,
                 batch_norm=bn,
                 meta_act=meta_act,
-                meta_depth=meta_depth
+                meta_depth=meta_depth,
+                weight_share=weight_share,
+                feats=feats
                 ))
         
         # last conv (strided if not pool)
@@ -801,7 +868,9 @@ class HyperStack(tnn.ModuleList):
                 stride=stride,
                 bias=b,
                 meta_act=meta_act,
-                meta_depth=meta_depth))
+                meta_depth=meta_depth,
+                weight_share=weight_share,
+                feats=feats))
         else:
             modules.append(HyperConv(
                 dim, i, o, meta_dim,
@@ -812,7 +881,9 @@ class HyperStack(tnn.ModuleList):
                 bias=b,
                 grouppool=grouppool,
                 meta_act=meta_act,
-                meta_depth=meta_depth))
+                meta_depth=meta_depth,
+                weight_share=weight_share,
+                feats=feats))
 
         self.modules = modules
                 
