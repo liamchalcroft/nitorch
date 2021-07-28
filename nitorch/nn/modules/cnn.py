@@ -2570,6 +2570,7 @@ class GroupNet(tnn.Sequential):
             meta_depth=2,
             meta_act=None,
             weight_share=False,
+            pooling=True,
             hyper_feats=16):
         """
 
@@ -2636,6 +2637,7 @@ class GroupNet(tnn.Sequential):
         self.fusion_depth = fusion_depth
         self.hyper = hyper
         self.weight_share = weight_share
+        self.pooling = pooling
 
         # defaults
         conv_per_layer = max(1, conv_per_layer)
@@ -2747,7 +2749,7 @@ class GroupNet(tnn.Sequential):
                         residual=residual,
                         groups=in_channels
                     ))
-                elif n == fusion_depth:
+                elif pooling == True and n == fusion_depth:
                     bn = batch_norm
                     if hyper:
                         modules_encoder.append(HyperStack(
@@ -2822,7 +2824,7 @@ class GroupNet(tnn.Sequential):
         modules['encoder'] = tnn.ModuleList(modules_encoder)
 
         #--- group pooling ------------------------------------------
-        if fusion_depth:
+        if fusion_depth and pooling:
             group_pool = []
             if len(group_pool) == 0:
                 if hyper:
@@ -2881,7 +2883,7 @@ class GroupNet(tnn.Sequential):
         modules_decoder = []
         *encoder, bottleneck = encoder
         for n in range(len(decoder) - 1):
-            if fusion_depth:
+            if fusion_depth and pooling:
                 if (len(decoder)-(n+1)) <= fusion_depth:
                     cin = decoder[n] + (encoder[-n - 1] // in_channels)
                 else:
@@ -2920,7 +2922,7 @@ class GroupNet(tnn.Sequential):
         modules['decoder'] = tnn.ModuleList(modules_decoder)
 
         # --- head -----------------------------------------------
-        if fusion_depth:
+        if fusion_depth and pooling:
             cin = decoder[-1] + 1
         else:
             cin = decoder[-1] + in_channels
@@ -3011,7 +3013,7 @@ class GroupNet(tnn.Sequential):
             meta = self.hyperbase(meta)
 
         buffers = []
-        if self.fusion_depth:
+        if self.fusion_depth and self.pooling:
             if self.hyper:
                 buffers.append(self.group[0](x, meta))
             else:
@@ -3033,7 +3035,7 @@ class GroupNet(tnn.Sequential):
                     x, buffer = layer(x, return_last=True)
             else:
                 x, buffer = layer(x, return_last=True)
-            if self.fusion_depth:
+            if self.fusion_depth and self.pooling:
                 if i <= self.fusion_depth:
                     # group-pooling
                     pool = self.group[i+1]
