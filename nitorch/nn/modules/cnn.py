@@ -2566,7 +2566,8 @@ class GroupNet(tnn.Sequential):
             activation=tnn.LeakyReLU(),
             batch_norm=True,
             residual=False,
-            conv_per_layer=1):
+            conv_per_layer=1,
+            meta_act=None):
         """
 
         Parameters
@@ -2667,7 +2668,8 @@ class GroupNet(tnn.Sequential):
                 activation=activation,
                 stride=stride,
                 batch_norm=bn,
-                padding='auto')
+                padding='auto',
+                meta_act=meta_act)
         else:
             if fusion_depth:
                 modules['first'] = Conv(
@@ -2710,7 +2712,8 @@ class GroupNet(tnn.Sequential):
                             stride=stride,
                             activation=activation,
                             batch_norm=bn,
-                            residual=residual
+                            residual=residual,
+                            meta_act=meta_act
                         ))
                     else:
                         bn = tnn.GroupNorm(in_channels, cin)
@@ -2738,7 +2741,8 @@ class GroupNet(tnn.Sequential):
                             activation=activation,
                             batch_norm=bn,
                             residual=residual,
-                            grouppool=True
+                            grouppool=True,
+                            meta_act=meta_act
                         ))
                     else:
                         modules_encoder.append(EncodingLayer(
@@ -2783,7 +2787,8 @@ class GroupNet(tnn.Sequential):
             if len(group_pool) == 0:
                 if hyper:
                     group_pool.append(HyperConv(dim=dim, in_channels=in_channels,
-                        out_channels=1, meta_dim=meta_dim, kernel_size=1, grouppool=True))
+                        out_channels=1, meta_dim=meta_dim, kernel_size=1, grouppool=True,
+                        meta_act=meta_act))
                 else:
                     group_pool.append(Conv(dim=dim, in_channels=in_channels,
                         out_channels=1, kernel_size=1))
@@ -2792,7 +2797,8 @@ class GroupNet(tnn.Sequential):
                 cout = cin // in_channels
                 if hyper:
                     group_pool.append(HyperConv(dim=dim, in_channels=cin,
-                    out_channels=cout, meta_dim=meta_dim, kernel_size=1, grouppool=True))
+                    out_channels=cout, meta_dim=meta_dim, kernel_size=1, grouppool=True,
+                    meta_act=meta_act))
                 else:
                     group_pool.append(Conv(dim=dim, in_channels=cin,
                     out_channels=cout, kernel_size=1))
@@ -2813,7 +2819,8 @@ class GroupNet(tnn.Sequential):
                 activation=activation,
                 batch_norm=batch_norm,
                 residual=residual,
-                transposed=True
+                transposed=True,
+                meta_act=meta_act
             )
         else:
             modules['bottleneck'] = DecodingLayer(
@@ -2851,7 +2858,8 @@ class GroupNet(tnn.Sequential):
                     activation=activation,
                     batch_norm=batch_norm,
                     residual=residual,
-                    transposed=True))
+                    transposed=True,
+                    meta_act=meta_act))
             else:
                 modules_decoder.append(DecodingLayer(
                     dim,
@@ -2883,7 +2891,8 @@ class GroupNet(tnn.Sequential):
                     kernel_size=kernel_size,
                     activation=activation,
                     batch_norm=batch_norm,
-                    residual=residual
+                    residual=residual,
+                    meta_act=meta_act
                 )
             else:
                 stk = StackedConv(
@@ -2910,7 +2919,8 @@ class GroupNet(tnn.Sequential):
                         kernel_size=kernel_size,
                         activation=final_activation,
                         batch_norm=batch_norm,
-                        padding='auto'
+                        padding='auto',
+                        meta_act=meta_act
                     )
         else:
             final = Conv(dim, last_stack, out_channels,
@@ -3300,7 +3310,8 @@ class HyperUNet(tnn.Sequential):
             activation=tnn.LeakyReLU(),
             batch_norm=True,
             residual=False,
-            conv_per_layer=1):
+            conv_per_layer=1,
+            meta_act=None):
         """
 
         Parameters
@@ -3383,7 +3394,8 @@ class HyperUNet(tnn.Sequential):
             activation=activation,
             stride=stride,
             batch_norm=bn,
-            padding='auto')
+            padding='auto',
+            meta_act=meta_act)
 
         # --- encoder -----------------------------------------------
         modules_encoder = []
@@ -3400,7 +3412,8 @@ class HyperUNet(tnn.Sequential):
                 stride=stride,
                 activation=activation,
                 batch_norm=bn,
-                residual=residual
+                residual=residual,
+                meta_act=meta_act
             ))
         modules['encoder'] = tnn.ModuleList(modules_encoder)
 
@@ -3418,7 +3431,8 @@ class HyperUNet(tnn.Sequential):
             activation=activation,
             batch_norm=batch_norm,
             residual=residual,
-            transposed=True
+            transposed=True,
+            meta_act=meta_act
         )
 
         # --- decoder ------------------------------------------
@@ -3438,7 +3452,8 @@ class HyperUNet(tnn.Sequential):
                 activation=activation,
                 batch_norm=batch_norm,
                 residual=residual,
-                transposed=True))
+                transposed=True,
+                meta_act=meta_act))
         modules['decoder'] = tnn.ModuleList(modules_decoder)
 
         # --- head -----------------------------------------------
@@ -3455,7 +3470,8 @@ class HyperUNet(tnn.Sequential):
                 kernel_size=kernel_size,
                 activation=activation,
                 batch_norm=batch_norm,
-                residual=residual
+                residual=residual,
+                meta_act=meta_act
             )
             modules['stack'] = stk
             last_stack = cout[-1]
@@ -3471,7 +3487,8 @@ class HyperUNet(tnn.Sequential):
                     kernel_size=kernel_size,
                     activation=final_activation,
                     batch_norm=batch_norm,
-                    padding='auto'
+                    padding='auto',
+                    meta_act=meta_act
                 )
         modules['final'] = final
 
