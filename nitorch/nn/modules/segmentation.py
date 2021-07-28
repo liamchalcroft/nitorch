@@ -944,6 +944,7 @@ class GroupSegNet(Module):
                 implicit=True,
                 augmentation=None,
                 weight_share=False,
+                pooling=True,
                 skip_final_activation=False):
         """
 
@@ -1047,7 +1048,8 @@ class GroupSegNet(Module):
             conv_per_layer=conv_per_layer,
             residual=residual,
             meta_act=meta_act,
-            weight_share=weight_share
+            weight_share=weight_share,
+            pooling=pooling
             )
 
         # register loss tag
