@@ -3239,23 +3239,10 @@ class PhysicsSegNet(tnn.Sequential):
 
         """
 
-        if self.hyper == True:
-            if meta==None:
-                raise RuntimeError('No meta-data provided.')
-
         buffers = []
-        if self.fusion_depth:
-            if self.hyper:
-                buffers.append(self.group[0](x, meta))
-            else:
-                buffers.append(self.group[0](x))
-        else:
-            buffers.append(x)
+        buffers.append(x)
 
-        if self.hyper:
-            x = self.first(x, meta)
-        else:
-            x = self.first(x)
+        x = self.first(x)
 
         # encoder
         for i, layer in enumerate(self.encoder):
