@@ -3261,7 +3261,7 @@ class PhysicsSegNet(tnn.Sequential):
             x = layer(x, buffer, output_padding=pad)
 
         phys = self.subnet(meta)
-        phys = resize_phys(phys, x)
+        phys = self.resize_phys(phys, x)
         x = self.stack(x, buffers.pop(), phys)
         f = x if return_feat else None
         x = self.final(x)
