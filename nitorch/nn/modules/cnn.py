@@ -3345,7 +3345,7 @@ class PhysicsSegNet(tnn.Sequential):
         elif len(network_input.shape) == 5:
             phys_input = phys_input[..., None, None]
         net_shape = list(network_input.shape[2:])
-        net_shape[2] /= phys_input.shape[-1]
+        net_shape[2] //= phys_input.shape[-1]
         phys_input = phys_input.repeat((1,1,)+tuple(net_shape))
         print(phys_input.shape)
         return phys_input
