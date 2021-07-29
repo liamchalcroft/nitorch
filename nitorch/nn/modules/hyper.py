@@ -75,14 +75,14 @@ class HyperBase(tnn.Module):
 
         self.blocks = tnn.ModuleList(shared_modules)
 
-        def forward(self, meta):
+    def forward(self, meta):
 
-            for block in self.blocks:
-                block = block
-                meta = block(meta)
-                meta = self.meta_act(meta)
+        for block in self.blocks:
+            block = block
+            meta = block(meta)
+            meta = self.meta_act(meta)
 
-            return meta
+        return meta
 
 
 @nitorchmodule
