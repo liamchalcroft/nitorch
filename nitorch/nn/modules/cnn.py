@@ -3013,6 +3013,8 @@ class GroupNet(tnn.Sequential):
             meta = self.hyperbase(meta)
 
         buffers = []
+        if adv:
+            adv_buffers = []
         if self.fusion_depth and self.pooling:
             if self.hyper:
                 buffers.append(self.group[0](x, meta))
@@ -3020,6 +3022,8 @@ class GroupNet(tnn.Sequential):
                 buffers.append(self.group[0](x))
         else:
             buffers.append(x)
+        if adv and self.fusion_depth:
+            adv_buffers.append(buffers[-1])
 
         if self.hyper:
             x = self.first(x, meta)
@@ -3045,10 +3049,12 @@ class GroupNet(tnn.Sequential):
                         buffer = pool(buffer, meta)
                     else:
                         buffer = pool(buffer)
+            if adv and self.fusion_depth >= i:
+                adv_buffers.append(buffer)
             buffers.append(buffer)
 
         if adv:
-            adv_input = [b.view(b.shape[0],1,-1) for b in buffers]
+            adv_input = [b.view(b.shape[0],1,-1) for b in adv_buffers]
             adv_input = torch.cat(adv_input, dim=2)
             adv_pred = adv(adv_input)
 
