@@ -3033,7 +3033,7 @@ class GroupNet(tnn.Sequential):
         # encoder
         for i, layer in enumerate(self.encoder):
             if self.hyper:
-                if self.fusion_depth and self.fusion_depth>=i:
+                if self.fusion_depth and self.fusion_depth>i:
                     print(i)
                     print(layer)
                     x, buffer = layer(x, meta, return_last=True)
@@ -3044,14 +3044,14 @@ class GroupNet(tnn.Sequential):
             else:
                 x, buffer = layer(x, return_last=True)
             if self.fusion_depth and self.pooling:
-                if i <= self.fusion_depth:
+                if i < self.fusion_depth:
                     # group-pooling
                     pool = self.group[i+1]
                     if self.hyper:
                         buffer = pool(buffer, meta)
                     else:
                         buffer = pool(buffer)
-            if adv and self.fusion_depth >= i:
+            if adv and self.fusion_depth > i:
                 adv_buffers.append(buffer)
             buffers.append(buffer)
 
