@@ -3011,6 +3011,7 @@ class GroupNet(tnn.Sequential):
 
         if self.weight_share is True:
             meta = self.hyperbase(meta)
+            print(meta.shape)
 
         buffers = []
         if adv:
