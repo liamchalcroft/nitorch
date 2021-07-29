@@ -3032,6 +3032,8 @@ class GroupNet(tnn.Sequential):
 
         # encoder
         for i, layer in enumerate(self.encoder):
+            print(i)
+            print(layer)
             if self.hyper:
                 if self.fusion_depth and self.fusion_depth>=i:
                     x, buffer = layer(x, meta, return_last=True)
