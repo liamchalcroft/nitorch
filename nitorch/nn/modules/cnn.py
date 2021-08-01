@@ -2824,26 +2824,27 @@ class GroupNet(tnn.Sequential):
         modules['encoder'] = tnn.ModuleList(modules_encoder)
 
         #--- group pooling ------------------------------------------
-        if fusion_depth and pooling:
-            group_pool = []
-            if hyper:
-                group_pool.append(HyperConv(dim=dim, in_channels=in_channels,
-                    out_channels=1, meta_dim=meta_dim, kernel_size=1, grouppool=True,
-                    meta_act=meta_act, meta_depth=meta_depth, weight_share=weight_share, feats=hyper_feats))
-            else:
-                group_pool.append(Conv(dim=dim, in_channels=in_channels,
-                    out_channels=1, kernel_size=1))
-            for i in range(fusion_depth+1):
-                cin = encoder[i]
-                cout = cin // in_channels
+        if pooling==True:
+            if fusion_depth:
+                group_pool = []
                 if hyper:
-                    group_pool.append(HyperConv(dim=dim, in_channels=cin,
-                    out_channels=cout, meta_dim=meta_dim, kernel_size=1, grouppool=True,
-                    meta_act=meta_act, meta_depth=meta_depth, weight_share=weight_share, feats=hyper_feats))
+                    group_pool.append(HyperConv(dim=dim, in_channels=in_channels,
+                        out_channels=1, meta_dim=meta_dim, kernel_size=1, grouppool=True,
+                        meta_act=meta_act, meta_depth=meta_depth, weight_share=weight_share, feats=hyper_feats))
                 else:
-                    group_pool.append(Conv(dim=dim, in_channels=cin,
-                    out_channels=cout, kernel_size=1))
-            modules['group'] = tnn.ModuleList(group_pool)
+                    group_pool.append(Conv(dim=dim, in_channels=in_channels,
+                        out_channels=1, kernel_size=1))
+                for i in range(fusion_depth+1):
+                    cin = encoder[i]
+                    cout = cin // in_channels
+                    if hyper:
+                        group_pool.append(HyperConv(dim=dim, in_channels=cin,
+                        out_channels=cout, meta_dim=meta_dim, kernel_size=1, grouppool=True,
+                        meta_act=meta_act, meta_depth=meta_depth, weight_share=weight_share, feats=hyper_feats))
+                    else:
+                        group_pool.append(Conv(dim=dim, in_channels=cin,
+                        out_channels=cout, kernel_size=1))
+                modules['group'] = tnn.ModuleList(group_pool)
 
         # --- bottleneck ------------------------------------------
         cin = encoder[-1]
