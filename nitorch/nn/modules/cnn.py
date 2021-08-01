@@ -2719,7 +2719,6 @@ class GroupNet(tnn.Sequential):
             cout = [cin] * (conv_per_layer - 1) + [cout]
             if fusion_depth:
                 if n < fusion_depth:
-                    print(n, fusion_depth)
                     if hyper:
                         bn = batch_norm
                         modules_encoder.append(HyperStack(
@@ -2793,6 +2792,7 @@ class GroupNet(tnn.Sequential):
                         residual=residual
                     ))
             else:
+                print(n, fusion_depth)
                 if hyper == True:
                     bn = batch_norm
                     modules_encoder.append(HyperStack(
