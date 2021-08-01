@@ -3048,7 +3048,7 @@ class GroupNet(tnn.Sequential):
             else:
                 x, buffer = layer(x, return_last=True)
             if isinstance(self.fusion_depth, int) and self.pooling:
-                if i <= self.fusion_depth:
+                if i < self.fusion_depth:
                     # group-pooling
                     pool = self.group[i+1]
                     if self.hyper:
