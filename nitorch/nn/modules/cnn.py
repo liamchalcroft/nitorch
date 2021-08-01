@@ -2652,7 +2652,7 @@ class GroupNet(tnn.Sequential):
         activation, final_activation = make_list(activation, 2)
         kernel_size, final_kernel_size = make_list(kernel_size, 2)
 
-        if fusion_depth:
+        if isinstance(fusion_depth, int):
             for i in range(fusion_depth):
                 encoder[i] *= in_channels
 
@@ -2668,7 +2668,7 @@ class GroupNet(tnn.Sequential):
             )
 
         # --- initial feature extraction --------------------------------
-        if fusion_depth and not hyper:
+        if isinstance(fusion_depth, int) and not hyper:
             bn = tnn.GroupNorm(in_channels, in_channels)
         else:
             bn = batch_norm
@@ -2689,7 +2689,7 @@ class GroupNet(tnn.Sequential):
                 weight_share=weight_share,
                 feats=hyper_feats)
         else:
-            if fusion_depth:
+            if isinstance(fusion_depth, int):
                 modules['first'] = Conv(
                     dim,
                     in_channels=in_channels,
@@ -2717,7 +2717,7 @@ class GroupNet(tnn.Sequential):
             cin = encoder[n]
             cout = encoder[n + 1]
             cout = [cin] * (conv_per_layer - 1) + [cout]
-            if fusion_depth:
+            if isinstance(fusion_depth, int):
                 if n < fusion_depth:
                     if hyper:
                         bn = batch_norm
@@ -2826,7 +2826,7 @@ class GroupNet(tnn.Sequential):
 
         #--- group pooling ------------------------------------------
         if pooling==True:
-            if fusion_depth:
+            if isinstance(fusion_depth, int):
                 group_pool = []
                 if hyper:
                     group_pool.append(HyperConv(dim=dim, in_channels=in_channels,
@@ -2884,7 +2884,7 @@ class GroupNet(tnn.Sequential):
         modules_decoder = []
         *encoder, bottleneck = encoder
         for n in range(len(decoder) - 1):
-            if fusion_depth and pooling:
+            if isinstance(fusion_depth, int) and pooling:
                 if (len(decoder)-(n+1)) <= fusion_depth:
                     cin = decoder[n] + (encoder[-n - 1] // in_channels)
                 else:
@@ -2923,7 +2923,7 @@ class GroupNet(tnn.Sequential):
         modules['decoder'] = tnn.ModuleList(modules_decoder)
 
         # --- head -----------------------------------------------
-        if fusion_depth and pooling:
+        if isinstance(fusion_depth, int) and pooling:
             cin = decoder[-1] + 1
         else:
             cin = decoder[-1] + in_channels
@@ -3016,7 +3016,7 @@ class GroupNet(tnn.Sequential):
         buffers = []
         if adv:
             adv_buffers = []
-        if self.fusion_depth and self.pooling:
+        if isinstance(self.fusion_depth, int) and self.pooling:
             if self.hyper:
                 buffers.append(self.group[0](x, meta))
             else:
@@ -3036,7 +3036,7 @@ class GroupNet(tnn.Sequential):
         # encoder
         for i, layer in enumerate(self.encoder):
             if self.hyper:
-                if self.fusion_depth and self.fusion_depth>i:
+                if isinstance(self.fusion_depth, int) and self.fusion_depth>i:
                     x, buffer = layer(x, meta, return_last=True)
                 elif not self.fusion_depth:
                     x, buffer = layer(x, meta, return_last=True)
@@ -3044,7 +3044,7 @@ class GroupNet(tnn.Sequential):
                     x, buffer = layer(x, return_last=True)
             else:
                 x, buffer = layer(x, return_last=True)
-            if self.fusion_depth and self.pooling:
+            if isinstance(self.fusion_depth, int) and self.pooling:
                 if i < self.fusion_depth:
                     # group-pooling
                     pool = self.group[i+1]
@@ -3733,7 +3733,7 @@ class HyperCycleSegNet(tnn.Sequential):
         activation, final_activation = make_list(activation, 2)
         kernel_size, final_kernel_size = make_list(kernel_size, 2)
 
-        if fusion_depth:
+        if isinstance(fusion_depth, int):
             for i in range(fusion_depth):
                 encoder[i] *= in_channels
 
@@ -3789,7 +3789,7 @@ class HyperCycleSegNet(tnn.Sequential):
         modules['encoder'] = tnn.ModuleList(modules_encoder)
 
         #--- group pooling ------------------------------------------
-        if fusion_depth:
+        if isinstance(fusion_depth, int):
             group_pool = []
             if len(group_pool) == 0:
                 group_pool.append(HyperConv(dim=dim, in_channels=in_channels,
@@ -3942,7 +3942,7 @@ class HyperCycleSegNet(tnn.Sequential):
 
         # encoder
         for i, layer in enumerate(self.encoder):
-            if self.fusion_depth>=i:
+            if isinstance(self.fusion_depth, int)>=i:
                 x, buffer = layer(x, meta, return_last=True)
             # group-pooling
             if i <= self.fusion_depth:
