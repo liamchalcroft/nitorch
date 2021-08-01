@@ -2826,14 +2826,13 @@ class GroupNet(tnn.Sequential):
         #--- group pooling ------------------------------------------
         if fusion_depth and pooling:
             group_pool = []
-            if len(group_pool) == 0:
-                if hyper:
-                    group_pool.append(HyperConv(dim=dim, in_channels=in_channels,
-                        out_channels=1, meta_dim=meta_dim, kernel_size=1, grouppool=True,
-                        meta_act=meta_act, meta_depth=meta_depth, weight_share=weight_share, feats=hyper_feats))
-                else:
-                    group_pool.append(Conv(dim=dim, in_channels=in_channels,
-                        out_channels=1, kernel_size=1))
+            if hyper:
+                group_pool.append(HyperConv(dim=dim, in_channels=in_channels,
+                    out_channels=1, meta_dim=meta_dim, kernel_size=1, grouppool=True,
+                    meta_act=meta_act, meta_depth=meta_depth, weight_share=weight_share, feats=hyper_feats))
+            else:
+                group_pool.append(Conv(dim=dim, in_channels=in_channels,
+                    out_channels=1, kernel_size=1))
             for i in range(fusion_depth+1):
                 cin = encoder[i]
                 cout = cin // in_channels
@@ -3029,6 +3028,10 @@ class GroupNet(tnn.Sequential):
             x = self.first(x, meta)
         else:
             x = self.first(x)
+        if adv:
+            adv_buffers.append(x)
+
+        
 
         # encoder
         for i, layer in enumerate(self.encoder):
