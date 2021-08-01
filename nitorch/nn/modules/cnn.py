@@ -2834,7 +2834,7 @@ class GroupNet(tnn.Sequential):
                 else:
                     group_pool.append(Conv(dim=dim, in_channels=in_channels,
                         out_channels=1, kernel_size=1))
-                for i in range(fusion_depth+1):
+                for i in range(fusion_depth):
                     cin = encoder[i]
                     cout = cin // in_channels
                     if hyper:
@@ -3035,6 +3035,7 @@ class GroupNet(tnn.Sequential):
         # encoder
         for i, layer in enumerate(self.encoder):
             if self.hyper:
+                print(i, layer)
                 if isinstance(self.fusion_depth, int) and self.fusion_depth>i:
                     x, buffer = layer(x, meta, return_last=True)
                 elif not isinstance(self.fusion_depth, int):
