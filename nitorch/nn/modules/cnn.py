@@ -3086,6 +3086,7 @@ class GroupNet(tnn.Sequential):
             x = self.stack(x, buffers.pop())
             f = x if return_feat else None
             x = self.final(x)
+            print('forward pass done')
         return (x, f) if return_feat else (x, adv_pred) if adv else x
 
     def get_padding(self, outshape, inshape, layer):
@@ -3340,7 +3341,6 @@ class PhysicsSegNet(tnn.Sequential):
         x = self.stack(x, buffers.pop(), phys)
         f = x if return_feat else None
         x = self.final(x)
-        print('forward pass done')
         return (x, f) if return_feat else x
 
     def get_padding(self, outshape, inshape, layer):
