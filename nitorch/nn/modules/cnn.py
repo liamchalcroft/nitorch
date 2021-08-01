@@ -2792,7 +2792,6 @@ class GroupNet(tnn.Sequential):
                         residual=residual
                     ))
             else:
-                print(n, fusion_depth)
                 if hyper == True:
                     bn = batch_norm
                     modules_encoder.append(HyperStack(
@@ -3038,7 +3037,7 @@ class GroupNet(tnn.Sequential):
             if self.hyper:
                 if isinstance(self.fusion_depth, int) and self.fusion_depth>i:
                     x, buffer = layer(x, meta, return_last=True)
-                elif not self.fusion_depth:
+                elif not isinstance(self.fusion_depth, int):
                     x, buffer = layer(x, meta, return_last=True)
                 else:
                     x, buffer = layer(x, return_last=True)
