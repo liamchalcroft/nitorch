@@ -3031,8 +3031,6 @@ class GroupNet(tnn.Sequential):
         if adv:
             adv_buffers.append(x)
 
-        
-
         # encoder
         for i, layer in enumerate(self.encoder):
             if self.hyper:
@@ -3084,13 +3082,11 @@ class GroupNet(tnn.Sequential):
             x = torch.cat((x, buffer), dim=1)
             x = self.stack(x, meta=meta)
             f = x if return_feat else None
-            print(x.shape)
             x = self.final(x, meta=meta)
         else:
             x = self.stack(x, buffers.pop())
             f = x if return_feat else None
             x = self.final(x)
-            print('forward pass done')
         return (x, f) if return_feat else (x, adv_pred) if adv else x
 
     def get_padding(self, outshape, inshape, layer):
