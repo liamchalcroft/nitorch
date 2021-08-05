@@ -577,7 +577,7 @@ class StackedConv(tnn.ModuleList):
                 in_channels
             )
         else:
-            self.attention = None
+            self.attention = False
                 
         super().__init__(modules)
         
@@ -3347,6 +3347,7 @@ class PhysicsSegNet(tnn.Sequential):
         phys = self.subnet(meta)
         phys = self.resize_phys(phys, x)
         buffer = buffers.pop()
+        print(x)
         x = self.stack(x, buffers, phys)
         f = x if return_feat else None
         x = self.final(x)
