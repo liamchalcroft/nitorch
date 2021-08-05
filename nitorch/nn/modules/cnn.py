@@ -665,6 +665,7 @@ class StackedConv(tnn.ModuleList):
         x = torch.cat(x, 1) if len(x) > 1 else x[0]
         if 'cat' in return_last:
             last.append(x)
+        print(x.shape)
         for layer in self:
             if isinstance(layer, Conv) and layer.transposed:
                 kwargs = dict(output_padding=output_padding)
@@ -3346,7 +3347,7 @@ class PhysicsSegNet(tnn.Sequential):
         phys = self.resize_phys(phys, x)
         buffer = buffers.pop()
         print(x.shape, buffer.shape, phys.shape)
-        x = self.stack((x, buffers, phys))
+        x = self.stack(x, buffers, phys)
         f = x if return_feat else None
         x = self.final(x)
         return (x, f) if return_feat else x
