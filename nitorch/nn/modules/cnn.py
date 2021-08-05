@@ -662,8 +662,7 @@ class StackedConv(tnn.ModuleList):
             x, x_cat = x
             x_cat = self.attention(x, x_cat)
             x = (x, x_cat)
-        for x_ in x:
-            print(x_.shape)
+        print(x[0].shape)
         x = torch.cat(x, 1) if len(x) > 1 else x[0]
         if 'cat' in return_last:
             last.append(x)
