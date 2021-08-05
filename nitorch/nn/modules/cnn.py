@@ -3035,10 +3035,11 @@ class GroupNet(tnn.Sequential):
         # encoder
         for i, layer in enumerate(self.encoder):
             if self.hyper:
-                if self.pooling:
-                    f_d = self.fusion_depth + 1
-                else:
-                    f_d = self.fusion_depth
+                if isinstance(self.fusion_depth, int):
+                    if self.pooling:
+                        f_d = self.fusion_depth + 1
+                    else:
+                        f_d = self.fusion_depth
                 if isinstance(self.fusion_depth, int) and f_d>i:
                     x, buffer = layer(x, meta, return_last=True)
                 elif not isinstance(self.fusion_depth, int):
