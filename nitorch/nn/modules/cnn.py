@@ -3346,7 +3346,7 @@ class PhysicsSegNet(tnn.Sequential):
         phys = self.resize_phys(phys, x)
         buffer = buffers.pop()
         print(x.shape, buffer.shape, phys.shape)
-        x = self.stack(x, buffers, phys)
+        x = self.stack([x, buffers, phys])
         f = x if return_feat else None
         x = self.final(x)
         return (x, f) if return_feat else x
