@@ -1441,6 +1441,7 @@ class FeatureDiscriminator(tnn.Sequential):
                 x_ = f
             else:
                 x_ = torch.cat((x_, f), dim=1)
+        x = x_
 
         for enc_ in self.enc:
             x = enc_(x)
