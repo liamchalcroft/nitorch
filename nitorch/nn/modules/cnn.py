@@ -1433,6 +1433,7 @@ class FeatureDiscriminator(tnn.Sequential):
                         )) for head_ch_ in head_ch])
     
     def forward(self, x):
+        x_ = None
         for f in x:
             if f.shape[2] != self.target_size[0]:
                 f = tnn.functional.interpolate(f, self.target_size, mode='trilinear')
