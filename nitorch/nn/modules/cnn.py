@@ -1345,6 +1345,112 @@ class Discriminator(tnn.Sequential):
 
 
 @nitorchmodule
+class FeatureDiscriminator(tnn.Sequential):
+    """Discriminator network for CNN feature maps in e.g. Adversarial Domain Adaptation."""
+    def __init__(
+        self,
+        in_channels=1,
+        target_size=9,
+        dim=3,
+        out_dim=1,
+        channels=None,
+        batch_norm=False,
+        activation=tnn.LeakyReLU(),
+        final_activation=None,
+        reduction='max'
+    ):
+        """
+        Parameters
+        ----------
+        in_shape : int or sequence[int], default=None
+            Shape of generated image/volume.
+            Not needed if conv=True.
+
+        in_channels : int, default=1
+            Number of channels in input image/volume.
+
+        dim : {1, 2, 3, None}, default=3
+            Dimension of generated image. If None, will infer from out_shape.
+            
+        out_dim : int or sequence(int), default=2
+            Length of prediction vector (e.g. real/fake).
+            
+        conv : bool, default=True
+            If True, will use convolution blocks as in DCGAN.
+            If False, will use linear layers.
+
+        channels : sequence[int], default=None
+            Channels to use in network
+
+        batch_norm : bool, default=False
+            Batch normalization before each convolution.
+            Note that for Wasserstein-GAN Lipschitz constraints 
+            (https://arxiv.org/abs/1704.00028), batch_norm should be set to False or LayerNorm.
+            
+        activation : callable, default=tnn.LeakyReLU()
+            Activation function.
+            
+        final_activation : callable, default=None
+            Final activation function.
+
+        reduction : {'max', 'min', 'median', 'mean', 'sum'}, default='max'
+            Reduction function, that transitions between the encoding
+            layers and fully connected layers.
+
+        """
+
+        super().__init__()
+
+        self.dim = dim
+        self.final_activation = final_activation
+        self.target_size = dim * [target_size]
+
+        if isinstance(out_dim, (tuple)):
+            out_dim = list(out_dim)
+        if isinstance(out_dim, (list)):
+            self.out_dim_list = out_dim
+            out_dim = sum(out_dim)
+        else:
+            self.out_dim_list = [out_dim]
+
+        if not channels:
+            channels = (100, 100, 100, 100)
+        head_ch = [(channels[-1], dim) for dim in self.out_dim_list]
+        self.head_ch = head_ch
+
+        self.enc = Encoder(dim,
+                    in_channels=in_channels,
+                    out_channels=channels,
+                    activation=activation,
+                    batch_norm=batch_norm
+                    )
+        self.red = Reduction(reduction=reduction, keepdim=True)
+        self.head = tnn.ModuleList([tnn.Sequential(StackedConv(dim,
+                        in_channels=channels[-1],
+                        out_channels=head_ch_,
+                        kernel_size=1,
+                        activation=final_activation
+                        )) for head_ch_ in head_ch])
+    
+    def forward(self, x):
+        for f in x:
+            if f.shape[2] != self.target_size[0]:
+                f = tnn.functional.interpolate(f, self.target_size, mode='bilinear')
+            if not x_:
+                x_ = f
+            else:
+                x_ = torch.cat((x_, f), dim=1)
+
+        for enc_ in self.enc:
+            x = enc_(x)
+        x = self.red(x)
+        out = []
+        for head_ in self.head:
+            out.append(head_(x).flatten(start_dim=1))
+        return out
+
+
+@nitorchmodule
 class UNet(tnn.Sequential):
     """Fully-convolutional U-net."""
 
@@ -2986,7 +3092,7 @@ class GroupNet(tnn.Sequential):
 
         super().__init__(modules)
 
-    def forward(self, x, meta=None, return_feat=False, adv=None):
+    def forward(self, x, meta=None, return_feat=False, adv=None, adv_whole_enc=True):
         """
 
         Parameters
@@ -3056,14 +3162,13 @@ class GroupNet(tnn.Sequential):
                         buffer = pool(buffer, meta)
                     else:
                         buffer = pool(buffer)
-            if adv and self.fusion_depth > i:
-                adv_buffers.append(buffer)
+            if adv:
+                if adv_whole_enc or i < self.fusion_depth:
+                    adv_buffers.append(buffer)
             buffers.append(buffer)
 
         if adv:
-            adv_input = [b.view(b.shape[0],1,-1) for b in adv_buffers]
-            adv_input = torch.cat(adv_input, dim=2)
-            adv_pred = adv(adv_input)
+            adv_pred = adv(adv_buffers)
 
         pad = self.get_padding(buffers[-1].shape, x.shape, self.bottleneck)
 
