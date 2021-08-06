@@ -1435,7 +1435,7 @@ class FeatureDiscriminator(tnn.Sequential):
     def forward(self, x):
         for f in x:
             if f.shape[2] != self.target_size[0]:
-                f = tnn.functional.interpolate(f, self.target_size, mode='bilinear')
+                f = tnn.functional.interpolate(f, self.target_size, mode='trilinear')
             if not x_:
                 x_ = f
             else:
