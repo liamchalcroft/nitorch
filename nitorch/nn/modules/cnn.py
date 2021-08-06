@@ -1448,7 +1448,7 @@ class FeatureDiscriminator(tnn.Sequential):
         x = self.red(x)
         out = []
         for head_ in self.head:
-            out.append(head_(x))
+            out.append(head_(x).flatten(start_dim=1))
         return out
 
 
