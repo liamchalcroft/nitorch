@@ -1062,7 +1062,7 @@ class GroupSegNet(Module):
     kernel_size = property(lambda self: self.groupnet.kernel_size)
     activation = property(lambda self: self.groupnet.activation)
 
-    def forward(self, image, ref=None, meta=None,  *, _loss=None, _metric=None, adv=None):
+    def forward(self, image, ref=None, meta=None,  *, _loss=None, _metric=None, adv=None, adv_whole_enc=True):
         """
 
         Parameters
@@ -1103,7 +1103,7 @@ class GroupSegNet(Module):
 
         # unet
         if adv:
-            prob, adv_pred = self.groupnet(image, meta, adv=adv)
+            prob, adv_pred = self.groupnet(image, meta, adv=adv, adv_whole_enc=adv_whole_enc)
         else:
             prob = self.groupnet(image, meta)
         if self.implicit and prob.shape[1] > self.output_classes:
