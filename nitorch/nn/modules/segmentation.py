@@ -945,7 +945,9 @@ class GroupSegNet(Module):
                 augmentation=None,
                 weight_share=False,
                 pooling=True,
-                skip_final_activation=False):
+                skip_final_activation=False,
+                meta_depth=2,
+                hyper_feats=16):
         """
 
         Parameters
@@ -1049,7 +1051,9 @@ class GroupSegNet(Module):
             residual=residual,
             meta_act=meta_act,
             weight_share=weight_share,
-            pooling=pooling
+            pooling=pooling,
+            hyper_feats=hyper_feats,
+            meta_depth=meta_depth
             )
 
         # register loss tag
