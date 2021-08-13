@@ -3165,7 +3165,6 @@ class GroupNet(tnn.Sequential):
             if adv:
                 if adv_whole_enc or i < self.fusion_depth:
                     adv_buffers.append(buffer)
-            print(buffer.shape, x.shape)
             buffers.append(buffer)
 
         if adv:
@@ -3179,16 +3178,12 @@ class GroupNet(tnn.Sequential):
         else:
             x = self.bottleneck(x, output_padding=pad)
 
-        print(len(buffers))
-        print(len(self.decoder))
-
         # decoder
         for layer in self.decoder:
             buffer = buffers.pop()
             print(buffer.shape, x.shape)
-            print(len(buffers))
+            print(buffers[-1].shape)
             pad = self.get_padding(buffers[-1].shape, x.shape, layer)
-            print(pad)
             if self.hyper and not isinstance(self.fusion_depth, int):
                 x_cat = torch.cat((x, buffer), dim=1)
                 x = layer(x_cat, meta=meta, output_padding=pad)
