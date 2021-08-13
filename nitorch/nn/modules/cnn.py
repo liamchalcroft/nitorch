@@ -2986,7 +2986,7 @@ class GroupNet(tnn.Sequential):
 
         # --- decoder ------------------------------------------
         modules_decoder = []
-        *encoder, bottleneck = encoder
+        *decoder, bottleneck = decoder
         for n in range(len(decoder) - 1):
             if isinstance(fusion_depth, int) and pooling:
                 if (len(decoder)-(n+1)) <= fusion_depth:
