@@ -3026,8 +3026,6 @@ class GroupNet(tnn.Sequential):
                 ))
         modules['decoder'] = tnn.ModuleList(modules_decoder)
 
-        print(encoder)
-
         # --- head -----------------------------------------------
         # if isinstance(fusion_depth, int) and pooling:
         #     cin = decoder[-1] + encoder[0]
@@ -3184,8 +3182,6 @@ class GroupNet(tnn.Sequential):
         # decoder
         for layer in self.decoder:
             buffer = buffers.pop()
-            print(buffer.shape, x.shape)
-            print(buffers[-1].shape)
             pad = self.get_padding(buffers[-1].shape, x.shape, layer)
             if self.hyper and not isinstance(self.fusion_depth, int):
                 x_cat = torch.cat((x, buffer), dim=1)
