@@ -2789,7 +2789,6 @@ class GroupNet(tnn.Sequential):
                 meta_dim=meta_dim,
                 kernel_size=kernel_size,
                 activation=activation,
-                stride=stride,
                 batch_norm=bn,
                 padding='auto',
                 meta_act=meta_act,
@@ -2804,7 +2803,6 @@ class GroupNet(tnn.Sequential):
                     out_channels=encoder[0],
                     kernel_size=kernel_size,
                     activation=activation,
-                    stride=stride,
                     batch_norm=bn,
                     padding='auto',
                     groups=in_channels)
@@ -2815,7 +2813,6 @@ class GroupNet(tnn.Sequential):
                     out_channels=encoder[0],
                     kernel_size=kernel_size,
                     activation=activation,
-                    stride=stride,
                     batch_norm=bn,
                     padding='auto')
 
