@@ -3026,11 +3026,14 @@ class GroupNet(tnn.Sequential):
                 ))
         modules['decoder'] = tnn.ModuleList(modules_decoder)
 
+        print(encoder)
+
         # --- head -----------------------------------------------
-        if isinstance(fusion_depth, int) and pooling:
-            cin = decoder[-1] + 1
-        else:
-            cin = decoder[-1] + in_channels
+        # if isinstance(fusion_depth, int) and pooling:
+        #     cin = decoder[-1] + encoder[0]
+        # else:
+        #     cin = decoder[-1] + in_channels
+        cin = decoder[-1] + encoder[0]
         cout = [decoder[-1]] * (conv_per_layer - 1)
         for s in stack:
             cout += [s] * conv_per_layer
