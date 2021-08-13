@@ -3134,12 +3134,12 @@ class GroupNet(tnn.Sequential):
         # if adv and self.fusion_depth:
         #     adv_buffers.append(buffers[-1])
 
-        # if self.hyper:
-        #     x = self.first(x, meta)
-        # else:
-        #     x = self.first(x)
-        # if adv:
-        #     adv_buffers.append(x)
+        if self.hyper:
+            x = self.first(x, meta)
+        else:
+            x = self.first(x)
+        if adv:
+            adv_buffers.append(x)
 
         # encoder
         for i, layer in enumerate(self.encoder):
