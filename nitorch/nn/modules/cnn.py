@@ -3168,6 +3168,7 @@ class GroupNet(tnn.Sequential):
             if adv:
                 if adv_whole_enc or i < self.fusion_depth:
                     adv_buffers.append(buffer)
+            print(buffer.shape)
             buffers.append(buffer)
 
         if adv:
