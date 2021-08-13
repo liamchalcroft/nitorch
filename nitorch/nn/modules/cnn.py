@@ -3123,22 +3123,23 @@ class GroupNet(tnn.Sequential):
         buffers = []
         if adv:
             adv_buffers = []
-        if isinstance(self.fusion_depth, int) and self.pooling:
-            if self.hyper:
-                buffers.append(self.group[0](x, meta))
-            else:
-                buffers.append(self.group[0](x))
-        else:
-            buffers.append(x)
-        if adv and self.fusion_depth:
-            adv_buffers.append(buffers[-1])
 
-        if self.hyper:
-            x = self.first(x, meta)
-        else:
-            x = self.first(x)
-        if adv:
-            adv_buffers.append(x)
+        # if isinstance(self.fusion_depth, int) and self.pooling:
+        #     if self.hyper:
+        #         buffers.append(self.group[0](x, meta))
+        #     else:
+        #         buffers.append(self.group[0](x))
+        # else:
+        #     buffers.append(x)
+        # if adv and self.fusion_depth:
+        #     adv_buffers.append(buffers[-1])
+
+        # if self.hyper:
+        #     x = self.first(x, meta)
+        # else:
+        #     x = self.first(x)
+        # if adv:
+        #     adv_buffers.append(x)
 
         # encoder
         for i, layer in enumerate(self.encoder):
