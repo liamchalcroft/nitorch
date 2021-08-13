@@ -3181,6 +3181,8 @@ class GroupNet(tnn.Sequential):
         else:
             x = self.bottleneck(x, output_padding=pad)
 
+        print(len(buffers))
+
         # decoder
         for layer in self.decoder:
             buffer = buffers.pop()
