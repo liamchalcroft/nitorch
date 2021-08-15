@@ -3429,7 +3429,6 @@ class PhysicsSegNet(tnn.Sequential):
         """
 
         buffers = []
-        buffers.append(x)
 
         x = self.first(x)
 
