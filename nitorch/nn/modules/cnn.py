@@ -3354,7 +3354,7 @@ class PhysicsSegNet(tnn.Sequential):
 
         # --- decoder ------------------------------------------
         modules_decoder = []
-        *encoder, bottleneck = encoder
+        *decoder, bottleneck = decoder
         for n in range(len(decoder) - 1):
             cin = decoder[n] + encoder[-n - 1]
             cout = decoder[n + 1]
