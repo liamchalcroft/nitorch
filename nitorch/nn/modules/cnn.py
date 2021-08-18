@@ -3315,7 +3315,6 @@ class PhysicsSegNet(tnn.Sequential):
                 out_channels=encoder[0],
                 kernel_size=kernel_size,
                 activation=activation,
-                stride=stride,
                 batch_norm=bn,
                 padding='auto')
 
