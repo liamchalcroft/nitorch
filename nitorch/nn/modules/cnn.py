@@ -3465,8 +3465,10 @@ class PhysicsSegNet(tnn.Sequential):
     @staticmethod
     def resize_phys(phys_input, network_input):
         if len(network_input.shape) == 4:
+            print('2d')
             phys_input = phys_input[..., None]
         elif len(network_input.shape) == 5:
+            print('3d')
             phys_input = phys_input[..., None, None]
         net_shape = list(network_input.shape[2:])
         net_shape[0] = int(net_shape[0] / phys_input.shape[2])
