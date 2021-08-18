@@ -3380,7 +3380,7 @@ class PhysicsSegNet(tnn.Sequential):
         )
 
         # --- head -----------------------------------------------
-        cin = decoder[-1] + in_channels + 1
+        cin = decoder[-1] + encoder[0] + 1
         cout = [decoder[-1]] * (conv_per_layer - 1)
         for s in stack:
             cout += [s] * conv_per_layer
