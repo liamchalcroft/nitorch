@@ -3449,7 +3449,7 @@ class PhysicsSegNet(tnn.Sequential):
         phys = self.subnet(meta)
         phys = self.resize_phys(phys, x)
         buffer = buffers.pop()
-        print(x.shape, buffer.shape, phys.shape)
+        # print(x.shape, buffer.shape, phys.shape)
         x = self.stack(x, buffer, phys)
         f = x if return_feat else None
         x = self.final(x)
@@ -3467,7 +3467,7 @@ class PhysicsSegNet(tnn.Sequential):
             phys_input = phys_input[..., None]
         elif len(network_input.shape) == 5:
             phys_input = phys_input[..., None, None]
-            print(phys_input.shape)
+            # print(phys_input.shape)
         net_shape = list(network_input.shape[2:])
         phys_input = tnn.functional.interpolate(phys_input, size=tuple(net_shape))
         # print(net_shape)
