@@ -2,87 +2,55 @@
 """Spatial deformations (i.e., grids)."""
 
 import torch
-import torch.nn.functional as _F
-from nitorch.core import kernels, utils, linalg
+from nitorch.core import utils, linalg
 from nitorch.core.utils import expand, make_vector
 from nitorch.core.py import make_list, prod
-from nitorch._C import spatial as _Cspatial
 from nitorch._C.spatial import BoundType, InterpolationType
+from nitorch._C.grid import GridPull, GridPush, GridCount, GridGrad
 from ._affine import affine_resize, affine_lmdiv
 from ._regularisers import solve_grid_sym
+from ._finite_differences import diff
 
 
-__all__ = ['grid_pull', 'grid_push', 'grid_count', 'grid_grad',
-           'identity_grid', 'affine_grid', 'compose', 'jacobian',
-           'BoundType', 'InterpolationType', 'resize', 'resize_grid',
-           'reslice', 'grid_inv']
+__all__ = ['grid_pull', 'grid_push', 'grid_count', 'grid_grad', 'grid_inv',
+           'identity_grid', 'affine_grid', 'resize', 'resize_grid', 'reslice',
+           'grid_jacobian', 'grid_jacdet',
+           'BoundType', 'InterpolationType']
 
 _doc_interpolation = \
 """`interpolation` can be an int, a string or an InterpolationType.
-Possible values are:
-    - 0 or 'nearest'    or InterpolationType.nearest
-    - 1 or 'linear'     or InterpolationType.linear
-    - 2 or 'quadratic'  or InterpolationType.quadratic
-    - 3 or 'cubic'      or InterpolationType.cubic
-    - 4 or 'fourth'     or InterpolationType.fourth
-    - etc.
-A list of values can be provided, in the order [W, H, D],
-to specify dimension-specific interpolation orders."""
+    Possible values are:
+        - 0 or 'nearest'    or InterpolationType.nearest
+        - 1 or 'linear'     or InterpolationType.linear
+        - 2 or 'quadratic'  or InterpolationType.quadratic
+        - 3 or 'cubic'      or InterpolationType.cubic
+        - 4 or 'fourth'     or InterpolationType.fourth
+        - etc.
+    A list of values can be provided, in the order [W, H, D],
+    to specify dimension-specific interpolation orders."""
 
 _doc_bound = \
 """`bound` can be an int, a string or a BoundType.
-Possible values are:
-    - 'replicate'  or BoundType.replicate
-    - 'dct1'       or BoundType.dct1
-    - 'dct2'       or BoundType.dct2
-    - 'dst1'       or BoundType.dst1
-    - 'dst2'       or BoundType.dst2
-    - 'dft'        or BoundType.dft
-    - 'zero'       or BoundType.zero
-A list of values can be provided, in the order [W, H, D],
-to specify dimension-specific boundary conditions.
-Note that
-- `dft` corresponds to circular padding
-- `dct2` corresponds to Neumann boundary conditions (symmetric)
-- `dst2` corresponds to Dirichlet boundary conditions (antisymmetric)
-See https://en.wikipedia.org/wiki/Discrete_cosine_transform
-    https://en.wikipedia.org/wiki/Discrete_sine_transform
-"""
+    Possible values are:
+        - 'replicate'  or BoundType.replicate
+        - 'dct1'       or BoundType.dct1
+        - 'dct2'       or BoundType.dct2
+        - 'dst1'       or BoundType.dst1
+        - 'dst2'       or BoundType.dst2
+        - 'dft'        or BoundType.dft
+        - 'zero'       or BoundType.zero
+    A list of values can be provided, in the order [W, H, D],
+    to specify dimension-specific boundary conditions.
+    Note that
+    - `dft` corresponds to circular padding
+    - `dct2` corresponds to Neumann boundary conditions (symmetric)
+    - `dst2` corresponds to Dirichlet boundary conditions (antisymmetric)
+    See https://en.wikipedia.org/wiki/Discrete_cosine_transform
+        https://en.wikipedia.org/wiki/Discrete_sine_transform
+    """
 
 
-class _GridPull(torch.autograd.Function):
-
-    @staticmethod
-    def forward(ctx, input, grid, interpolation, bound, extrapolate):
-
-        opt = (bound, interpolation, extrapolate)
-
-        # Pull
-        output = _Cspatial.grid_pull(input, grid, *opt)
-
-        # Context
-        if input.requires_grad or grid.requires_grad:
-            ctx.opt = opt
-            ctx.save_for_backward(input, grid)
-
-        return output
-
-    @staticmethod
-    def backward(ctx, grad):
-        var = ctx.saved_variables
-        opt = ctx.opt
-        grad_input = grad_grid = None
-        grads = _Cspatial.grid_pull_backward(grad, *var, *opt)
-        if ctx.needs_input_grad[0]:
-            grad_input = grads[0]
-            if ctx.needs_input_grad[1]:
-                grad_grid = grads[1]
-        elif ctx.needs_input_grad[1]:
-            grad_grid = grads[0]
-        return grad_input, grad_grid, None, None, None
-
-
-def grid_pull(input, grid, interpolation='linear', bound='zero', extrapolate=True):
+def grid_pull(input, grid, interpolation='linear', bound='zero', extrapolate=False):
     """Sample an image with respect to a deformation field.
 
     Notes
@@ -90,80 +58,71 @@ def grid_pull(input, grid, interpolation='linear', bound='zero', extrapolate=Tru
     {interpolation}
 
     {bound}
+    
+    If the input dtype is not a floating point type, the input image is 
+    assumed to contain labels. Then, unique labels are extracted 
+    and resampled individually, making them soft labels. Finally, 
+    the label map is reconstructed from the individual soft labels by 
+    assigning the label with maximum soft value.
 
     Parameters
     ----------
-    input : (batch, channel, *inshape) tensor
+    input : ([batch], [channel], *inshape) tensor
         Input image.
-    grid : (batch, *outshape, dim) tensor
+    grid : ([batch], *outshape, dim) tensor
         Transformation field.
     interpolation : int or sequence[int], default=1
         Interpolation order.
-    bound : BoundType, or sequence[BoundType], default='zero'
+    bound : BoundType or sequence[BoundType], default='zero'
         Boundary conditions.
-    extrapolate : bool, default=True
+    extrapolate : bool or int, default=True
         Extrapolate out-of-bound data.
 
     Returns
     -------
-    output : (batch, channel, *outshape) tensor
+    output : ([batch], [channel], *outshape) tensor
         Deformed image.
 
-    """.format(interpolation=_doc_interpolation, bound=_doc_bound)
-    # Convert parameters
-    if not isinstance(bound, list) and \
-       not isinstance(bound, tuple):
-        bound = [bound]
-    if not isinstance(interpolation, list) and \
-       not isinstance(interpolation, tuple):
-        interpolation = [interpolation]
-    bound = [BoundType.__members__[b] if type(b) is str else BoundType(b)
-             for b in bound]
-    interpolation = [InterpolationType.__members__[i] if type(i) is str
-                     else InterpolationType(i) for i in interpolation]
-
+    """
     # Broadcast
+    dim = grid.shape[-1]
+    input_no_batch = input.dim() < dim + 2
+    input_no_channel = input.dim() == dim
+    grid_no_batch = grid.dim() == dim + 1
+    if input_no_channel:
+        input = input[None, None]
+    elif input_no_batch:
+        input = input[None]
+    if grid_no_batch:
+        grid = grid[None]
     batch = max(input.shape[0], grid.shape[0])
+    channel = input.shape[1]
     input = expand(input, [batch, *input.shape[1:]])
     grid = expand(grid, [batch, *grid.shape[1:]])
 
-    return _GridPull.apply(input, grid, interpolation, bound, extrapolate)
-
-
-class _GridPush(torch.autograd.Function):
-
-    @staticmethod
-    def forward(ctx, input, grid, shape, interpolation, bound, extrapolate):
-
-        opt = (bound, interpolation, extrapolate)
-
-        # Push
-        output = _Cspatial.grid_push(input, grid, shape, *opt)
-
-        # Context
-        if input.requires_grad or grid.requires_grad:
-            ctx.opt = opt
-            ctx.save_for_backward(input, grid)
-
-        return output
-
-    @staticmethod
-    def backward(ctx, grad):
-        var = ctx.saved_variables
-        opt = ctx.opt
-        grad_input = grad_grid = None
-        grads = _Cspatial.grid_push_backward(grad, *var, *opt)
-        if ctx.needs_input_grad[0]:
-            grad_input = grads[0]
-            if ctx.needs_input_grad[1]:
-                grad_grid = grads[1]
-        elif ctx.needs_input_grad[1]:
-            grad_grid = grads[0]
-        return grad_input, grad_grid, None, None, None, None
+    is_label = not utils.dtypes.dtype(input.dtype).is_floating_point
+    if is_label:
+        # label map -> specific processing
+        out = input.new_zeros([batch, channel, *grid.shape[1:-1]])
+        pmax = grid.new_zeros([batch, channel, *grid.shape[1:-1]])
+        for label in input.unique():
+            soft = (input == label).to(grid.dtype)
+            soft = expand(soft, [batch, *input.shape[1:]])
+            soft = GridPull.apply(soft, grid, interpolation, bound, extrapolate)
+            out[soft > pmax] = label
+            pmax = torch.max(pmax, soft)
+    else:
+        input = expand(input, [batch, *input.shape[1:]])
+        out = GridPull.apply(input, grid, interpolation, bound, extrapolate)
+    if input_no_channel:
+        out = out[:, 0]
+    if input_no_batch and grid_no_batch:
+        out = out[0]
+    return out
 
 
 def grid_push(input, grid, shape=None, interpolation='linear', bound='zero',
-              extrapolate=True):
+              extrapolate=False):
     """Splat an image with respect to a deformation field (pull adjoint).
 
     Notes
@@ -174,9 +133,9 @@ def grid_push(input, grid, shape=None, interpolation='linear', bound='zero',
 
     Parameters
     ----------
-    input : (batch, channel, *inshape) tensor
+    input : ([batch], [channel], *inshape) tensor
         Input image.
-    grid : (batch, *inshape, dim) tensor
+    grid : ([batch], *inshape, dim) tensor
         Transformation field.
     shape : sequence[int], default=inshape
         Output shape
@@ -184,29 +143,26 @@ def grid_push(input, grid, shape=None, interpolation='linear', bound='zero',
         Interpolation order.
     bound : BoundType, or sequence[BoundType], default='zero'
         Boundary conditions.
-    extrapolate : bool, default=True
+    extrapolate : bool or int, default=True
         Extrapolate out-of-bound data.
 
     Returns
     -------
-    output : (batch, channel, *shape) tensor
+    output : ([batch], [channel], *shape) tensor
         Spatted image.
 
-    """.format(interpolation=_doc_interpolation, bound=_doc_bound)
-    # Convert parameters
-    if not isinstance(bound, list) and \
-       not isinstance(bound, tuple):
-        bound = [bound]
-    bound = list(bound)
-    if not isinstance(interpolation, list) and \
-       not isinstance(interpolation, tuple):
-        interpolation = [interpolation]
-    bound = [BoundType.__members__[b] if type(b) is str else BoundType(b)
-             for b in bound]
-    interpolation = [InterpolationType.__members__[i] if type(i) is str
-                     else InterpolationType(i) for i in interpolation]
-
+    """
     # Broadcast
+    dim = grid.shape[-1]
+    input_no_batch = input.dim() == dim + 1
+    input_no_channel = input.dim() == dim
+    grid_no_batch = grid.dim() == dim + 1
+    if input_no_channel:
+        input = input[None, None]
+    elif input_no_batch:
+        input = input[None]
+    if grid_no_batch:
+        grid = grid[None]
     batch = max(input.shape[0], grid.shape[0])
     channel = input.shape[1]
     ndims = grid.shape[-1]
@@ -219,38 +175,16 @@ def grid_push(input, grid, shape=None, interpolation='linear', bound='zero',
     if shape is None:
         shape = tuple(input.shape[2:])
 
-    return _GridPush.apply(input, grid, shape, interpolation, bound, extrapolate)
-
-
-class _GridCount(torch.autograd.Function):
-
-    @staticmethod
-    def forward(ctx, grid, shape, interpolation, bound, extrapolate):
-
-        opt = (bound, interpolation, extrapolate)
-
-        # Push
-        output = _Cspatial.grid_count(grid, shape, *opt)
-
-        # Context
-        if grid.requires_grad:
-            ctx.opt = opt
-            ctx.save_for_backward(grid)
-
-        return output
-
-    @staticmethod
-    def backward(ctx, grad):
-        var = ctx.saved_variables
-        opt = ctx.opt
-        grad_grid = None
-        if ctx.needs_input_grad[0]:
-            grad_grid = _Cspatial.grid_count_backward(grad, *var, *opt)
-        return grad_grid, None, None, None, None
+    out = GridPush.apply(input, grid, shape, interpolation, bound, extrapolate)
+    if input_no_channel:
+        out = out[:, 0]
+    if input_no_batch and grid_no_batch:
+        out = out[0]
+    return out
 
 
 def grid_count(grid, shape=None, interpolation='linear', bound='zero',
-               extrapolate=True):
+               extrapolate=False):
     """Splatting weights with respect to a deformation field (pull adjoint).
 
     Notes
@@ -261,7 +195,7 @@ def grid_count(grid, shape=None, interpolation='linear', bound='zero',
 
     Parameters
     ----------
-    grid : (batch, *inshape, dim) tensor
+    grid : ([batch], *inshape, dim) tensor
         Transformation field.
     shape : sequence[int], default=inshape
         Output shape
@@ -269,68 +203,30 @@ def grid_count(grid, shape=None, interpolation='linear', bound='zero',
         Interpolation order.
     bound : BoundType, or sequence[BoundType], default='zero'
         Boundary conditions.
-    extrapolate : bool, default=True
+    extrapolate : bool or int, default=True
         Extrapolate out-of-bound data.
 
     Returns
     -------
-    output : (batch, channel, *shape) tensor
+    output : ([batch], 1, *shape) tensor
         Spatting weights.
 
-    """.format(interpolation=_doc_interpolation, bound=_doc_bound)
-    # Convert parameters
-    if not isinstance(bound, list) and \
-       not isinstance(bound, tuple):
-        bound = [bound]
-    bound = list(bound)
-    if not isinstance(interpolation, list) and \
-       not isinstance(interpolation, tuple):
-        interpolation = [interpolation]
-    bound = [BoundType.__members__[b] if type(b) is str else BoundType(b)
-             for b in bound]
-    interpolation = [InterpolationType.__members__[i] if type(i) is str
-                     else InterpolationType(i) for i in interpolation]
-
+    """
+    dim = grid.shape[-1]
+    grid_no_batch = grid.dim() == dim + 1
+    if grid_no_batch:
+        grid = grid[None]
     if shape is None:
         shape = tuple(grid.shape[1:-1])
 
-    return _GridCount.apply(grid, shape, interpolation, bound, extrapolate)
+    out = GridCount.apply(grid, shape, interpolation, bound, extrapolate)
+    if grid_no_batch:
+        out = out[0]
+    return out
 
 
-class _GridGrad(torch.autograd.Function):
-
-    @staticmethod
-    def forward(ctx, input, grid, interpolation, bound, extrapolate):
-
-        opt = (bound, interpolation, extrapolate)
-
-        # Pull
-        output = _Cspatial.grid_grad(input, grid, *opt)
-
-        # Context
-        if input.requires_grad or grid.requires_grad:
-            ctx.opt = opt
-            ctx.save_for_backward(input, grid)
-
-        return output
-
-    @staticmethod
-    def backward(ctx, grad):
-        var = ctx.saved_variables
-        opt = ctx.opt
-        grad_input = grad_grid = None
-        if ctx.needs_input_grad[0] or ctx.needs_input_grad[1]:
-            grads = _Cspatial.grid_grad_backward(grad, *var, *opt)
-            if ctx.needs_input_grad[0]:
-                grad_input = grads[0]
-                if ctx.needs_input_grad[1]:
-                    grad_grid = grads[1]
-            elif ctx.needs_input_grad[1]:
-                grad_grid = grads[0]
-        return grad_input, grad_grid, None, None, None
-
-
-def grid_grad(input, grid, interpolation='linear', bound='zero', extrapolate=True):
+def grid_grad(input, grid, interpolation='linear', bound='zero',
+              extrapolate=False):
     """Sample spatial gradients of an image with respect to a deformation field.
     
     Notes
@@ -341,9 +237,9 @@ def grid_grad(input, grid, interpolation='linear', bound='zero', extrapolate=Tru
 
     Parameters
     ----------
-    input : (batch, channel, *inshape) tensor
+    input : ([batch], [channel], *inshape) tensor
         Input image.
-    grid : (batch, *inshape, dim) tensor
+    grid : ([batch], *inshape, dim) tensor
         Transformation field.
     shape : sequence[int], default=inshape
         Output shape
@@ -351,103 +247,54 @@ def grid_grad(input, grid, interpolation='linear', bound='zero', extrapolate=Tru
         Interpolation order.
     bound : BoundType, or sequence[BoundType], default='zero'
         Boundary conditions.
-    extrapolate : bool, default=True
+    extrapolate : bool or int, default=True
         Extrapolate out-of-bound data.
 
     Returns
     -------
-    output : (batch, channel, *shape, dim) tensor
+    output : ([batch], [channel], *shape, dim) tensor
         Sampled gradients.
 
-    """.format(interpolation=_doc_interpolation, bound=_doc_bound)
-    # Convert parameters
-    if not isinstance(bound, list) and \
-       not isinstance(bound, tuple):
-        bound = [bound]
-    if not isinstance(interpolation, list) and \
-       not isinstance(interpolation, tuple):
-        interpolation = [interpolation]
-    bound = [BoundType.__members__[b] if type(b) is str else BoundType(b)
-             for b in bound]
-    interpolation = [InterpolationType.__members__[i] if type(i) is str
-                     else InterpolationType(i) for i in interpolation]
-
+    """
     # Broadcast
+    dim = grid.shape[-1]
+    input_no_batch = input.dim() == dim + 1
+    input_no_channel = input.dim() == dim
+    grid_no_batch = grid.dim() == dim + 1
+    if input_no_channel:
+        input = input[None, None]
+    elif input_no_batch:
+        input = input[None]
+    if grid_no_batch:
+        grid = grid[None]
     batch = max(input.shape[0], grid.shape[0])
     input = expand(input, [batch, *input.shape[1:]])
     grid = expand(grid, [batch, *grid.shape[1:]])
 
-    return _GridGrad.apply(input, grid, interpolation, bound, extrapolate)
+    out = GridGrad.apply(input, grid, interpolation, bound, extrapolate)
+    if input_no_channel:
+        out = out[:, 0]
+    if input_no_batch and grid_no_batch:
+        out = out[0]
+    return out
 
 
-def _vox2fov(shape, align_corners=True):
-    """Nifti to Torch coordinates.
+grid_pull.__doc__ = grid_pull.__doc__.format(
+    interpolation=_doc_interpolation, bound=_doc_bound)
+grid_push.__doc__ = grid_push.__doc__.format(
+    interpolation=_doc_interpolation, bound=_doc_bound)
+grid_count.__doc__ = grid_count.__doc__.format(
+    interpolation=_doc_interpolation, bound=_doc_bound)
+grid_grad.__doc__ = grid_grad.__doc__.format(
+    interpolation=_doc_interpolation, bound=_doc_bound)
 
-    Returns an affine matrix that transforms nifti volume coordinates
-    (in [0, len-1]) into pytorch volume coordinates (in [-1, 1]).
-
-    Args:
-        shape (tuple[int]): Shape of the volume grid (W, H, D).
-        align_corners (bool, optional): Torch coordinate type.
-            Defaults to True.
-
-    Returns:
-        mat (matrix): Affine conversion matrix (:math:`D+1 \times D+1`)
-
-    """
-    shape = torch.as_tensor(shape).to(torch.float)
-    dim = shape.numel()
-    if align_corners:
-        offset = -1.
-        scale = 2./(shape - 1.)
-    else:
-        offset = 1./shape-1.
-        scale = 2./shape
-    mat = torch.diag(torch.cat((scale, torch.ones(1))))
-    mat[:dim, -1] = offset
-    return mat
+# aliases
+pull = grid_pull
+push = grid_push
+count = grid_count
 
 
-def _fov2vox(shape, align_corners=True):
-    """Torch to Nifti coordinates."""
-    shape = torch.as_tensor(shape).to(torch.float)
-    dim = shape.numel()
-    if align_corners:
-        offset = (shape-1.)/2.
-        scale = (shape - 1.)/2.
-    else:
-        offset = (shape-1.)/2.
-        scale = shape/2.
-    mat = torch.diag(torch.cat((scale, torch.ones(1))))
-    mat[:dim, -1] = offset
-    return mat
-
-
-def _make_square(mat):
-    """Transform a compact affine matrix into a square affine matrix."""
-    mat = torch.as_tensor(mat)
-    shape = mat.size()
-    if mat.dim() != 2 or not shape[0] in (shape[1], shape[1] - 1):
-        raise ValueError('Input matrix should be Dx(D+1) or (D+1)x(D+1).')
-    if shape[0] < shape[1]:
-        addrow = torch.zeros(1, shape[1], dtype=mat.dtype, device=mat.device)
-        addrow[0, -1] = 1
-        mat = torch.cat((mat, addrow), dim=0)
-    return mat
-
-
-def _make_compact(mat):
-    """Transform a square affine matrix into a compact affine matrix."""
-    mat = torch.as_tensor(mat)
-    shape = mat.size()
-    if mat.dim() != 2 or not shape[0] in (shape[1], shape[1] - 1):
-        raise ValueError('Input matrix should be Dx(D+1) or (D+1)x(D+1).')
-    if shape[0] == shape[1]:
-        mat = mat[:-1, :]
-    return mat
-
-
-def identity_grid(shape, dtype=None, device=None):
+def identity_grid(shape, dtype=None, device=None, jitter=False):
     """Returns an identity deformation field.
 
     Parameters
@@ -458,6 +305,8 @@ def identity_grid(shape, dtype=None, device=None):
         Data type.
     device torch.device, optional
         Device.
+    jitter : bool or 'reproducible', default=False
+        Jitter identity grid.
 
     Returns
     -------
@@ -469,10 +318,18 @@ def identity_grid(shape, dtype=None, device=None):
               for s in shape]
     grid = torch.meshgrid(*mesh1d)
     grid = torch.stack(grid, dim=-1)
+    if jitter:
+        reproducible = jitter == 'reproducible'
+        device_ids = [grid.device.index] if grid.device.type == 'cuda' else None
+        with torch.random.fork_rng(device_ids, enabled=reproducible):
+            if reproducible:
+                torch.manual_seed(0)
+            grid += torch.rand_like(grid)
+            grid -= 0.5
     return grid
 
 
-def affine_grid(mat, shape):
+def affine_grid(mat, shape, jitter=False):
     """Create a dense transformation grid from an affine matrix.
 
     Parameters
@@ -481,6 +338,8 @@ def affine_grid(mat, shape):
         Affine matrix (or matrices).
     shape : (D,) sequence[int]
         Shape of the grid, with length D.
+    jitter : bool or 'reproducible', default=False
+        Jitter identity grid.
 
     Returns
     -------
@@ -499,197 +358,14 @@ def affine_grid(mat, shape):
                          '(..., {0}, {1}) or (..., {1], {1}) but got {2}.'
                          .format(nb_dim, nb_dim+1, mat.shape))
     batch_shape = mat.shape[:-2]
-    grid = identity_grid(shape, mat.dtype, mat.device)
-    grid = utils.unsqueeze(grid, dim=0, ndim=len(batch_shape))
-    mat = utils.unsqueeze(mat, dim=-3, ndim=nb_dim)
+    grid = identity_grid(shape, mat.dtype, mat.device, jitter=jitter)
+    if batch_shape:
+        grid = utils.unsqueeze(grid, dim=0, ndim=len(batch_shape))
+        mat = utils.unsqueeze(mat, dim=-3, ndim=nb_dim)
     lin = mat[..., :nb_dim, :nb_dim]
     off = mat[..., :nb_dim, -1]
     grid = linalg.matvec(lin, grid) + off
     return grid
-
-
-def compose(*args, interpolation='linear', bound='dft'):
-    """Compose multiple spatial deformations (affine matrices or flow fields).
-    """
-    # TODO:
-    # . add shape/dim argument to generate (if needed) an identity field
-    #   at the end of the chain.
-    # . possibility to provide fields that have an orientation matrix?
-    #   (or keep it the responsibility of the user?)
-    # . For higher order (> 1) interpolation: convert to spline coeficients.
-
-    def ismatrix(x):
-        """Check that a tensor is a matrix (ndim == 2)."""
-        x = torch.as_tensor(x)
-        shape = torch.as_tensor(x.shape)
-        return shape.numel() == 2
-
-    # Pre-pass: check dimensionality
-    dim = None
-    last_affine = False
-    at_least_one_field = False
-    for arg in args:
-        if ismatrix(arg):
-            last_affine = True
-            dim1 = arg.shape[1]
-        else:
-            last_affine = False
-            at_least_one_field = True
-            dim1 = arg.dim() - 2
-        if dim is not None and dim != dim1:
-            raise ValueError("All deformations should have the same "
-                             "dimensionality (2D/3D).")
-        elif dim is None:
-            dim = dim1
-    if at_least_one_field and last_affine:
-        raise ValueError("The last deformation cannot be an affine matrix. "
-                         "Use affine_field to transform it first.")
-
-    # First pass: compose all sequential affine matrices
-    args1 = []
-    last_affine = None
-    for arg in args:
-        if ismatrix(arg):
-            if last_affine is None:
-                last_affine = _make_square(arg)
-            else:
-                last_affine = last_affine.matmul(_make_square(arg))
-        else:
-            if last_affine is not None:
-                args1.append(last_affine)
-                last_affine = None
-            args1.append(arg)
-
-    if not at_least_one_field:
-        return last_affine
-
-    # Second pass: perform all possible "field x matrix" compositions
-    args2 = []
-    last_affine = None
-    for arg in args1:
-        if ismatrix(arg):
-            last_affine = arg
-        else:
-            if last_affine is not None:
-                new_field = arg.matmul(
-                    last_affine[:dim, :dim].transpose(0, 1)) \
-                  + last_affine[:dim, dim].reshape((1,)*(dim+1) + (dim,))
-                args2.append(new_field)
-            else:
-                args2.append(arg)
-    if last_affine is not None:
-        args2.append(last_affine)
-
-    # Third pass: compose all flow fields
-    field = args2[-1]
-    for arg in args2[-2::-1]:  # args2[-2:0:-1]
-        arg = arg - identity_grid(arg.shape[1:-1], arg.dtype, arg.device)
-        arg = utils.last2channel(arg)
-        field = field + utils.channel2last(grid_pull(arg, field, interpolation, bound))
-
-    # /!\ (TODO) The very first field (the first one being interpolated)
-    # potentially contains a multiplication with an affine matrix (i.e.,
-    # it might not be expressed in voxels). This affine transformation should
-    # be removed prior to subtracting the identity, and added back at the end.
-    # However, I don't know how to 'guess' this matrix.
-    #
-    # After further though, I think we can find the matrix that minimizes in
-    # the least-square sense (F*M-I), where F is NbVox*D and contains the
-    # deformation field, I is NbVox*D and contains the identity field
-    # (expressed in voxels) and M is the inverse of the unknown matrix.
-    # This problem has a closed form solution: (F'*F)\(F'*I).
-    # For better stability, We could encode M in gl(D), the Lie
-    # algebra of invertible matrices, and use gauss-newton to optimise
-    # the problem.
-    #
-    # Below is a tentative implementatin of the linear version
-    # > Needs F'F to be invertible and well-conditioned
-
-    # # For the last field, we factor out a possible affine transformation
-    # arg = args2[0]
-    # shape = arg.shape
-    # N = shape[0]                                     # Batch size
-    # D = shape[-1]                                    # Dimension
-    # V = torch.as_tensor(shape[1:-1]).prod()          # Nb of voxels
-    # Id = identity(arg.shape[-2:0:-1], arg.dtype, arg.device).reshape(V, D)
-    # arg = arg.reshape(N, V, D)                       # Field as a matrix
-    # one = torch.ones((N, V, 1), dtype=arg.dtype, device=arg.device)
-    # arg = cat((arg, one), 2)
-    # Id  = cat((Id, one))
-    # AA = arg.transpose(1, 2).bmm(arg)                # LHS of linear system
-    # AI = arg.transpose(1, 2).bmm(arg)                # RHS of linear system
-    # M, _ = torch.solve(AI, AA)                       # Solution
-    # arg = arg.bmm(M) - Id                            # Closest displacement
-    # arg = arg[..., :-1].reshape(shape)
-    # arg = utils.last2channel(arg)
-    # field = grid_pull(arg, field, interpolation, bound)     # Interpolate
-    # field = field + channel2grid(grid_pull(arg, field, interpolation, bound))
-    # shape = field.shape
-    # V = torch.as_tensor(shape[1:-1]).prod()
-    # field = field.reshape(N, V, D)
-    # one = torch.ones((N, V, 1), dtype=field.dtype, device=field.device)
-    # field, _ = torch.solve(field.transpose(1, 2), M.transpose(1, 2))
-    # field = field.transpose(1, 2)[..., :-1].reshape(shape)
-
-    return field
-
-
-def jacobian(warp, bound='circular'):
-    """Compute the jacobian of a 'vox' warp.
-
-    This function estimates the field of Jacobian matrices of a deformation
-    field using central finite differences: (next-previous)/2.
-
-    Note that for Neumann boundary conditions, symmetric padding is usuallly
-    used (symmetry w.r.t. voxel edge), when computing Jacobian fields,
-    reflection padding is more adapted (symmetry w.r.t. voxel centre), so that
-    derivatives are zero at the edges of the FOV.
-
-    Note that voxel sizes are not considered here. The flow field should be
-    expressed in voxels and so will the Jacobian.
-
-    Args:
-        warp (torch.Tensor): flow field (N, W, H, D, 3).
-        bound (str, optional): Boundary conditions. Defaults to 'circular'.
-
-    Returns:
-        jac (torch.Tensor): Field of Jacobian matrices (N, W, H, D, 3, 3).
-            jac[:,:,:,:,i,j] contains the derivative of the i-th component of
-            the deformation field with respect to the j-th axis.
-
-    """
-    warp = torch.as_tensor(warp)
-    shape = warp.size()
-    dim = shape[-1]
-    ker = kernels.imgrad(dim, device=warp.device, dtype=warp.dtype)
-    ker = kernels.make_separable(ker, dim)
-    warp = utils.last2channel(warp)
-    if bound in ('circular', 'fft'):
-        warp = utils.pad(warp, (1,)*dim, mode='circular', side='both')
-        pad = 0
-    elif bound in ('reflect1', 'dct1'):
-        warp = utils.pad(warp, (1,)*dim, mode='reflect1', side='both')
-        pad = 0
-    elif bound in ('reflect2', 'dct2'):
-        warp = utils.pad(warp, (1,)*dim, mode='reflect2', side='both')
-        pad = 0
-    elif bound in ('constant', 'zero', 'zeros'):
-        pad = 1
-    else:
-        raise ValueError('Unknown bound {}.'.format(bound))
-    if dim == 1:
-        conv = _F.conv1d
-    elif dim == 2:
-        conv = _F.conv2d
-    elif dim == 3:
-        conv = _F.conv3d
-    else:
-        raise ValueError('Warps must be of dimension 1, 2 or 3. Got {}.'
-                         .format(dim))
-    jac = conv(warp, ker, padding=pad, groups=dim)
-    jac = jac.reshape((shape[0], dim, dim) + shape[1:])
-    jac = jac.permute((0,) + tuple(range(3, 3+dim)) + (1, 2))
-    return jac
 
 
 def resize(image, factor=None, shape=None, affine=None, anchor='c',
@@ -758,17 +434,16 @@ def resize(image, factor=None, shape=None, affine=None, anchor='c',
     inshape = image.shape[2:]
     info = {'dtype': image.dtype, 'device': image.device}
     factor = make_vector(factor or 0., nb_dim).tolist()
-    outshape = make_list(shape, nb_dim)
+    outshape = make_list(shape or [None], nb_dim)
     anchor = [a[0].lower() for a in make_list(anchor, nb_dim)]
     return_trf = kwargs.pop('_return_trf', False)  # hidden option
 
     # compute output shape
-    outshape = [int(inshp*f) if outshp is None else outshp
-                for inshp, outshp, f in zip(inshape, outshape, factor)]
+    outshape = [o or int(i*f) for i, o, f in zip(inshape, outshape, factor)]
     if any(not s for s in outshape):
         raise ValueError('Either factor or shape must be set in '
                          'all dimensions')
-    factor = [o/i for o, i in zip(outshape, inshape)]
+    factor = [f or o/i for o, i, f in zip(outshape, inshape, factor)]
 
     # compute transformation grid
     # there is an affine relationship between the input and output grid:
@@ -1033,3 +708,105 @@ def grid_inv(grid, type='grid', lam=0.1, bound='dft',
         return identity - disp
     else:
         return -disp
+
+def grid_jacobian(grid, bound='dft', voxel_size=1, type='grid'):
+    """Compute the Jacobian of a transformation field
+
+    Notes
+    -----
+    .. If a displacement (`type='disp'`) is provided, we compute the Jacobian
+       of the transformation field (identity + displacement) by
+       adding ones to the diagonal.
+    .. This function uses central finite differences to estimate the
+       Jacobian.
+
+    Parameters
+    ----------
+    grid : (..., *spatial, dim) tensor
+        Transformation ('grid') or displacement ('disp')
+    bound : str, default='dft'
+    voxel_size : [sequence of] float, default=1
+    type : {'grid', 'disp'}, default='grid'
+
+    Returns
+    -------
+    jac : (..., *spatial, dim, dim) tensor
+        Jacobian. In each matrix: jac[i, j] = d psi[i] / d xj
+
+    """
+    grid = torch.as_tensor(grid)
+    dim = grid.shape[-1]
+    if type == 'grid':
+        grid -= identity_grid(grid.shape[-dim-1:-1], **utils.backend(grid))
+    dims = list(range(-dim-1, -1))
+    jac = diff(grid, dim=dims, bound=bound, voxel_size=voxel_size, side='c')
+    torch.diagonal(jac, 0, -1, -2).add_(1)
+    return jac
+
+
+def grid_jacdet(grid, bound='dft', voxel_size=1, type='grid'):
+    """Compute the Jacobian determinant of a transformation field
+
+    Notes
+    -----
+    .. If a displacement (`type='disp'`) is provided, we compute the Jacobian
+       of the transformation field (identity + displacement) by
+       adding ones to the diagonal.
+    .. This function uses central finite differences to estimate the
+       Jacobian.
+
+    Parameters
+    ----------
+    grid : (..., *spatial, dim) tensor
+        Transformation ('grid') or displacement ('disp')
+    bound : str, default='dft'
+    voxel_size : [sequence of] float, default=1
+    type : {'grid', 'disp'}, default='grid'
+
+    Returns
+    -------
+    det : (..., *spatial) tensor
+        Jacobian determinant.
+
+    """
+    jac = grid_jacobian(grid, bound=bound, voxel_size=voxel_size, type=type)
+    return jac.det()
+
+
+# def transform_points(points, grid, type='grid',
+#                      affine=None, points_unit='mm', grid_unit='voxels',
+#                      bound='zero', interpolation=1, extrapolate=0):
+#     """
+#
+#     Parameters
+#     ----------
+#     points : ([batch], collection, dim) tensor
+#         Collection of points (in
+#     grid : ([batch], *spatial, dim) tensor
+#         Transformation of displacement grid
+#     type : {'grid', 'displacement'}
+#     affine
+#     bound
+#     interpolation
+#     extrapolate
+#
+#     Returns
+#     -------
+#
+#     """
+#
+#     vertices = torch.as_tensor(vertices)
+#     disp = torch.as_tensor(disp)
+#     aff = torch.as_tensor(aff)
+#     # convert vertices to voxels to sample
+#     grid = ni.spatial.affine_matvec(ni.spatial.affine_inv(aff),
+#                                          vertices)
+#     grid = grid.reshape([1, 1, -1, 3])  # make 3d
+#     # sample displacement
+#     wdisp = ni.spatial.grid_pull(disp.movedim(-1, 0), grid,
+#                                       bound='zero', extrapolate=False)
+#     wdisp = wdisp.movedim(0, -1)
+#     grid = grid + wdisp
+#     grid = grid.reshape([-1, 3])
+#     # convert voxels to mm
+#     wvertices = ni.spatial.affine_matvec(aff, grid)
