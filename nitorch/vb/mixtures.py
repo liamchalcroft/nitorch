@@ -17,7 +17,7 @@ import torch
 torch.backends.cudnn.benchmark = True
 
 
-class Mixture:
+class Mixture(torch.nn.Module):
     # A mixture model.
     def __init__(self, num_class=2):
         """
